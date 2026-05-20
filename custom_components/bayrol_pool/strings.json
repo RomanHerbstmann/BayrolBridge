@@ -1,0 +1,81 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Bayrol Pool Access",
+        "description": "Sign in with your Bayrol Pool Access account.",
+        "data": {
+          "username": "Email / username",
+          "password": "Password",
+          "scan_interval": "Update interval (seconds)"
+        }
+      },
+      "controller": {
+        "title": "Select controller",
+        "description": "Choose the pool controller to integrate.",
+        "data": {
+          "cid": "Controller"
+        }
+      },
+      "chlor_method": {
+        "title": "Chlorine dosing",
+        "description": "Select how chlorine dosing is controlled on this pool.",
+        "data": {
+          "chlor_method": "Chlorine method"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Bayrol Pool Access",
+        "description": "Your Bayrol Pool Access session expired. Sign in again.",
+        "data": {
+          "username": "Email / username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid username or password.",
+      "cannot_connect": "Could not connect to Bayrol Pool Access."
+    },
+    "abort": {
+      "already_configured": "This controller is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "chlor_method": "Chlorine method"
+        }
+      }
+    }
+  },
+  "selector": {
+    "chlor_method": {
+      "options": {
+        "redox": "Redox (mV)",
+        "salt": "Salt chlorinator",
+        "none": "Disabled"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "ph": { "name": "pH" },
+      "redox": { "name": "Redox" },
+      "temperature": { "name": "Temperature" }
+    },
+    "switch": {
+      "chlorine_dosing": { "name": "Chlorine dosing" },
+      "ph_dosing": { "name": "pH dosing" }
+    },
+    "binary_sensor": {
+      "connectivity": { "name": "Connectivity" },
+      "chlorine_dosing_active": { "name": "Chlorine dosing active" },
+      "ph_dosing_active": { "name": "pH dosing active" },
+      "ph_alarm": { "name": "pH alarm" },
+      "redox_alarm": { "name": "Redox alarm" },
+      "temperature_alarm": { "name": "Temperature alarm" }
+    }
+  }
+}

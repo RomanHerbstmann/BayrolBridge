@@ -1,0 +1,507 @@
+"""Async API client for Bayrol Pool Access webview."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import re
+from typing import Any
+
+import aiohttp
+from aiohttp import ClientSession, ClientTimeout
+from bs4 import BeautifulSoup
+
+from .const import (
+    BASE_URL,
+    CHLOR_METHODS,
+    DATA_CHLORINE_DOSING,
+    DATA_CONNECTIVITY,
+    DATA_PH_DOSING,
+    DATA_STATUS,
+    DEFAULT_CHLOR_METHOD,
+    MEASUREMENT_KEYS,
+    PATH_DATA_JSON,
+    PATH_DEVICE,
+    PATH_GETDATA,
+    PATH_INDEX,
+    PATH_LOGIN_MOBILE,
+    PATH_LOGIN_PORTAL,
+    PATH_LOGIN_POST,
+    PATH_PLANTS,
+    PH_ITEM,
+    get_controls,
+)
+
+_LOGGER = logging.getLogger(__name__)
+
+BASE_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) "
+        "Gecko/20100101 Firefox/131.0"
+    ),
+    "Accept-Language": "de-DE,de;q=0.9,en;q=0.7",
+    "Connection": "keep-alive",
+}
+
+LOGIN_HEADERS = {
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    ),
+    "Content-Type": "application/x-www-form-urlencoded",
+    "Origin": "https://www.bayrol-poolaccess.de",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "same-origin",
+}
+
+DATA_HEADERS = {
+    "Accept": "*/*",
+    "X-Requested-With": "XMLHttpRequest",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
+}
+
+JSON_HEADERS = {
+    "Accept": "application/json, text/javascript, */*; q=0.01",
+    "Content-Type": "application/json; charset=utf-8",
+    "X-Requested-With": "XMLHttpRequest",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
+}
+
+
+class BayrolAuthError(Exception):
+    """Authentication failed."""
+
+
+class BayrolConnectionError(Exception):
+    """Connection or transport error."""
+
+
+class BayrolApiClient:
+    """Bayrol Pool Access HTTP client with session resilience."""
+
+    def __init__(
+        self,
+        session: ClientSession,
+        timeout: int = 30,
+        chlor_method: str = DEFAULT_CHLOR_METHOD,
+    ) -> None:
+        """Initialize client."""
+        self._session = session
+        self._timeout = ClientTimeout(total=timeout)
+        self._lock = asyncio.Lock()
+        self._phpsessid: str | None = None
+        self._username: str | None = None
+        self._password: str | None = None
+        self._logged_in = False
+        self._chlor_method = chlor_method
+
+    def _url(self, path: str) -> str:
+        return f"{BASE_URL}/{path.lstrip('/')}"
+
+    def _headers(
+        self, extra: dict[str, str] | None = None
+    ) -> dict[str, str]:
+        headers = BASE_HEADERS.copy()
+        if self._phpsessid:
+            headers["Cookie"] = f"PHPSESSID={self._phpsessid}"
+        if extra:
+            headers.update(extra)
+        return headers
+
+    @staticmethod
+    def _extract_phpsessid(response: aiohttp.ClientResponse) -> str | None:
+        for cookie in response.cookies.values():
+            if cookie.key == "PHPSESSID":
+                return cookie.value
+        set_cookie = response.headers.get("Set-Cookie", "")
+        match = re.search(r"PHPSESSID=([^;]+)", set_cookie)
+        return match.group(1) if match else None
+
+    @staticmethod
+    def _parse_login_form(html: str) -> dict[str, str]:
+        soup = BeautifulSoup(html, "html.parser")
+        form = soup.find("form", {"id": "form_login"}) or soup.find("form")
+        if not form:
+            return {}
+        form_data: dict[str, str] = {}
+        for field in form.find_all("input"):
+            name = field.get("name")
+            if name:
+                form_data[name] = field.get("value", "")
+        return form_data
+
+    @staticmethod
+    def _check_login_error(html: str) -> bool:
+        if "Fehler" not in html and "Zeit abgelaufen" not in html:
+            return False
+        soup = BeautifulSoup(html, "html.parser")
+        error = soup.find("div", class_="error_text")
+        if error:
+            _LOGGER.error("Login error: %s", error.get_text(strip=True))
+        return True
+
+    async def _login_locked(self, username: str, password: str) -> None:
+        """Authenticate (caller must hold ``_lock``)."""
+        self._username = username
+        self._password = password
+        self._session.cookie_jar.clear()
+        self._phpsessid = None
+        self._logged_in = False
+
+        init_paths = (PATH_INDEX, PATH_LOGIN_MOBILE, PATH_LOGIN_PORTAL)
+        form_html: str | None = None
+
+        for path in init_paths:
+            try:
+                async with self._session.get(
+                    self._url(path),
+                    headers=self._headers(),
+                    timeout=self._timeout,
+                    allow_redirects=True,
+                ) as response:
+                    phpsessid = self._extract_phpsessid(response)
+                    if phpsessid:
+                        self._phpsessid = phpsessid
+                    html = await response.text()
+                    if self._parse_login_form(html):
+                        form_html = html
+                        break
+            except aiohttp.ClientError as err:
+                _LOGGER.debug("Init path %s failed: %s", path, err)
+
+        if not self._phpsessid:
+            raise BayrolConnectionError("No PHPSESSID received")
+
+        if not form_html:
+            raise BayrolConnectionError("Login form not found")
+
+        form_data = self._parse_login_form(form_html)
+        if not form_data:
+            raise BayrolConnectionError("Login form fields missing")
+
+        form_data["username"] = username
+        form_data["password"] = password
+
+        post_urls = (
+            self._url(PATH_LOGIN_POST),
+            self._url(PATH_LOGIN_PORTAL),
+        )
+        last_error: Exception | None = None
+        for login_url in post_urls:
+            try:
+                headers = self._headers(LOGIN_HEADERS)
+                headers["Referer"] = self._url(PATH_LOGIN_MOBILE)
+                async with self._session.post(
+                    login_url,
+                    headers=headers,
+                    data=form_data,
+                    timeout=self._timeout,
+                    allow_redirects=True,
+                ) as response:
+                    content = await response.text()
+                    if self._check_login_error(content):
+                        raise BayrolAuthError("Invalid credentials")
+                    self._logged_in = True
+                    return
+            except BayrolAuthError:
+                raise
+            except aiohttp.ClientError as err:
+                last_error = err
+
+        if last_error:
+            raise BayrolConnectionError(str(last_error)) from last_error
+        raise BayrolAuthError("Login failed")
+
+    async def login(self, username: str, password: str) -> None:
+        """Authenticate (acquires the lock)."""
+        async with self._lock:
+            await self._login_locked(username, password)
+
+    async def _ensure_logged_in(self) -> None:
+        if self._logged_in and self._phpsessid:
+            return
+        if not self._username or not self._password:
+            raise BayrolAuthError("Not authenticated")
+        await self._login_locked(self._username, self._password)
+
+    async def _request_text_with_retry(
+        self,
+        method: str,
+        path: str,
+        *,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> tuple[int, str]:
+        """Perform HTTP request with one auto re-login retry."""
+        await self._ensure_logged_in()
+        url = self._url(path)
+
+        for attempt in range(2):
+            try:
+                async with self._session.request(
+                    method,
+                    url,
+                    headers=self._headers(headers),
+                    timeout=self._timeout,
+                    **kwargs,
+                ) as response:
+                    body = await response.text()
+                    if response.status in (401, 403) and attempt == 0:
+                        self._logged_in = False
+                        await self._login_locked(self._username, self._password)  # type: ignore[arg-type]
+                        continue
+                    return response.status, body
+            except aiohttp.ClientError as err:
+                if attempt == 0:
+                    self._logged_in = False
+                    await self._login_locked(self._username, self._password)  # type: ignore[arg-type]
+                    continue
+                raise BayrolConnectionError(str(err)) from err
+
+        raise BayrolConnectionError("Request failed after retry")
+
+    @property
+    def chlor_method(self) -> str:
+        """Configured chlorine dosing method."""
+        return self._chlor_method
+
+    async def async_detect_chlor_method(self, cid: str) -> str | None:
+        """Detect chlorine control item from device page HTML."""
+        try:
+            html = await self._fetch_device_html(cid)
+        except BayrolConnectionError:
+            return None
+
+        if "item5_40" in html:
+            return "salt"
+        if "item5_154" in html:
+            return "redox"
+        return None
+
+    async def get_controllers(self) -> list[dict[str, str]]:
+        """Return available pool controllers."""
+        async with self._lock:
+            status, html = await self._request_text_with_retry(
+                "GET", PATH_PLANTS, headers=LOGIN_HEADERS
+            )
+            if status != 200:
+                raise BayrolConnectionError(f"Plants page returned {status}")
+
+        return _parse_controllers(html)
+
+    async def fetch_pool_data(self, cid: str) -> dict[str, Any]:
+        """Fetch measurements and control state for a controller."""
+        async with self._lock:
+            data: dict[str, Any] = {
+                DATA_STATUS: "unknown",
+                DATA_CONNECTIVITY: False,
+            }
+            headers = DATA_HEADERS.copy()
+            headers["Referer"] = self._url(PATH_PLANTS)
+            status, html = await self._request_text_with_retry(
+                "GET",
+                f"{PATH_GETDATA}?cid={cid}",
+                headers=headers,
+            )
+            if status != 200:
+                raise BayrolConnectionError(f"getdata returned {status}")
+            data.update(_parse_pool_data(html))
+
+            if data.get(DATA_STATUS) != "offline":
+                try:
+                    device_html = await self._fetch_device_html(cid)
+                    data.update(
+                        _parse_control_states(device_html, self._chlor_method)
+                    )
+                except BayrolConnectionError:
+                    _LOGGER.debug(
+                        "Could not parse control states for controller %s",
+                        cid,
+                    )
+
+            data[DATA_CONNECTIVITY] = data.get(DATA_STATUS) == "online"
+            return data
+
+    async def _fetch_device_html(self, cid: str) -> str:
+        headers = self._headers()
+        headers["Referer"] = self._url(PATH_PLANTS)
+        status, html = await self._request_text_with_retry(
+            "GET",
+            f"{PATH_DEVICE}?c={cid}",
+            headers=headers,
+        )
+        if status != 200:
+            raise BayrolConnectionError(f"device page returned {status}")
+        return html
+
+    async def set_control(self, cid: str, control_key: str, enabled: bool) -> None:
+        """Enable or disable a dosing control."""
+        controls = get_controls(self._chlor_method)
+        if control_key not in controls:
+            raise ValueError(f"Unknown control: {control_key}")
+
+        control = controls[control_key]
+        value = control["value_on"] if enabled else control["value_off"]
+        payload = {
+            "device": cid,
+            "action": "setItems",
+            "data": {
+                "items": [
+                    {
+                        "topic": control["item"],
+                        "name": control["name"],
+                        "value": value,
+                        "valid": 1,
+                        "cmd": 1,
+                    }
+                ]
+            },
+        }
+
+        async with self._lock:
+            headers = JSON_HEADERS.copy()
+            headers["Referer"] = self._url(f"{PATH_DEVICE}?c={cid}")
+            status, body = await self._request_text_with_retry(
+                "POST",
+                control["set_path"],
+                headers=headers,
+                json=payload,
+            )
+            if status != 200:
+                raise BayrolConnectionError(f"setItems returned {status}")
+            # Success schema and item/value codes (5.154/5.40/5.42, 19.17/19.18)
+            # should be verified against a real device via data_json.php in DevTools.
+            try:
+                result = json.loads(body)
+            except (ValueError, TypeError) as err:
+                _LOGGER.debug("Unerwartete setItems-Antwort: %s", body[:200])
+                raise BayrolConnectionError("setItems: ungültige Antwort") from err
+            if result.get("error"):
+                raise BayrolConnectionError(
+                    f"setItems abgelehnt: {result.get('error')}"
+                )
+
+
+def _parse_controllers(html: str) -> list[dict[str, str]]:
+    soup = BeautifulSoup(html, "html.parser")
+    controllers: list[dict[str, str]] = []
+
+    for tab_row in soup.find_all("div", class_="tab_row"):
+        tab_1 = tab_row.find("div", class_="tab_1")
+        tab_2 = tab_row.find("div", class_="tab_2")
+        if not tab_1 or not tab_2:
+            continue
+
+        cid: str | None = None
+        tab_id = tab_2.get("id", "")
+        match = re.search(r"tab_data(\d+)", tab_id)
+        if match:
+            cid = match.group(1)
+
+        if not cid:
+            onclick_div = tab_1.find(
+                "div", onclick=re.compile(r"plant_settings\.php\?c=\d+")
+            )
+            if onclick_div:
+                onclick = onclick_div.get("onclick", "")
+                cid_match = re.search(r"c=(\d+)", onclick)
+                if cid_match:
+                    cid = cid_match.group(1)
+
+        if not cid:
+            continue
+
+        name = "Pool Controller"
+        p_tag = tab_1.find("p")
+        if p_tag:
+            name = p_tag.get_text(strip=True)
+
+        controllers.append({"cid": cid, "name": name})
+
+    return controllers
+
+
+def _parse_pool_data(html: str) -> dict[str, Any]:
+    soup = BeautifulSoup(html, "html.parser")
+
+    offline = soup.find("div", class_="tab_error")
+    if offline and "No connection to the controller" in offline.get_text():
+        return {DATA_STATUS: "offline"}
+
+    measurement_map = {
+        "pH": "pH",
+        "Redox": "mV",
+        "mV": "mV",
+        "Temp.": "T",
+        "Cl": "Cl",
+        "Salz": "Salt",
+        "T": "T",
+        "T1": "T",
+    }
+
+    data: dict[str, Any] = {}
+    for box in soup.find_all("div", class_="tab_box"):
+        span = box.find("span")
+        h1 = box.find("h1")
+        if not span or not h1:
+            continue
+        label_text = span.get_text(strip=True)
+        label_match = re.match(r"^([^[]+)", label_text)
+        if not label_match:
+            continue
+        raw_label = label_match.group(1).replace("\xa0", " ").strip()
+        label = measurement_map.get(raw_label)
+        if not label or label not in MEASUREMENT_KEYS:
+            continue
+        try:
+            data[label] = float(h1.get_text(strip=True))
+            classes = box.get("class", [])
+            data[f"{label}_alarm"] = (
+                "stat_warning" in classes or "stat_alarm" in classes
+            )
+        except ValueError:
+            continue
+
+    if data:
+        data[DATA_STATUS] = "online"
+    return data
+
+
+def _parse_control_states(
+    html: str, chlor_method: str = DEFAULT_CHLOR_METHOD
+) -> dict[str, bool | None]:
+    """Parse dosing switch states from device page HTML."""
+    states: dict[str, bool | None] = {
+        DATA_CHLORINE_DOSING: None,
+        DATA_PH_DOSING: None,
+    }
+
+    item_map: dict[str, str] = {PH_ITEM: DATA_PH_DOSING}
+    chlor_item = CHLOR_METHODS.get(chlor_method, CHLOR_METHODS[DEFAULT_CHLOR_METHOD])[
+        "item"
+    ]
+    if chlor_item is not None:
+        item_map[chlor_item] = DATA_CHLORINE_DOSING
+
+    soup = BeautifulSoup(html, "html.parser")
+    for item_id, data_key in item_map.items():
+        css_class = f"item{item_id.replace('.', '_')}"
+        item_div = soup.find(
+            "div", class_=lambda c: c and css_class in c  # type: ignore[misc]
+        )
+        if not item_div:
+            continue
+        active = "i_active" in item_div.get("class", [])
+        inactive = "i_inactive" in item_div.get("class", [])
+        if active:
+            states[data_key] = True
+        elif inactive:
+            states[data_key] = False
+
+    return {k: v for k, v in states.items() if v is not None}

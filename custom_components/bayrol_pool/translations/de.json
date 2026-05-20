@@ -1,0 +1,81 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Bayrol Pool Access",
+        "description": "Melden Sie sich mit Ihrem Bayrol-Pool-Access-Konto an.",
+        "data": {
+          "username": "E-Mail / Benutzername",
+          "password": "Passwort",
+          "scan_interval": "Aktualisierungsintervall (Sekunden)"
+        }
+      },
+      "controller": {
+        "title": "Steuerung auswählen",
+        "description": "Wählen Sie die Pool-Steuerung für die Integration.",
+        "data": {
+          "cid": "Steuerung"
+        }
+      },
+      "chlor_method": {
+        "title": "Chlordosierung",
+        "description": "Wählen Sie, wie die Chlordosierung an diesem Pool gesteuert wird.",
+        "data": {
+          "chlor_method": "Chlor-Methode"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Bayrol Pool Access erneut anmelden",
+        "description": "Ihre Bayrol-Pool-Access-Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.",
+        "data": {
+          "username": "E-Mail / Benutzername",
+          "password": "Passwort"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Ungültiger Benutzername oder Passwort.",
+      "cannot_connect": "Verbindung zu Bayrol Pool Access fehlgeschlagen."
+    },
+    "abort": {
+      "already_configured": "Diese Steuerung ist bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "chlor_method": "Chlor-Methode"
+        }
+      }
+    }
+  },
+  "selector": {
+    "chlor_method": {
+      "options": {
+        "redox": "Redox (mV)",
+        "salt": "Salzelektrolyse",
+        "none": "Deaktiviert"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "ph": { "name": "pH" },
+      "redox": { "name": "Redox" },
+      "temperature": { "name": "Temperatur" }
+    },
+    "switch": {
+      "chlorine_dosing": { "name": "Chlordosierung" },
+      "ph_dosing": { "name": "pH-Dosierung" }
+    },
+    "binary_sensor": {
+      "connectivity": { "name": "Verbindung" },
+      "chlorine_dosing_active": { "name": "Chlordosierung aktiv" },
+      "ph_dosing_active": { "name": "pH-Dosierung aktiv" },
+      "ph_alarm": { "name": "pH-Alarm" },
+      "redox_alarm": { "name": "Redox-Alarm" },
+      "temperature_alarm": { "name": "Temperaturalarm" }
+    }
+  }
+}
