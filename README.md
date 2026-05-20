@@ -1,7 +1,7 @@
 # Bayrol Pool – Home Assistant Custom Integration
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-[![hassfest](https://github.com/rherbstmann/ha-bayrol-pool/actions/workflows/validate.yml/badge.svg)](https://github.com/rherbstmann/ha-bayrol-pool/actions/workflows/validate.yml)
+[![hassfest](https://github.com/RomanHerbstmann/BayrolBridge/actions/workflows/validate.yml/badge.svg)](https://github.com/RomanHerbstmann/BayrolBridge/actions/workflows/validate.yml)
 
 Unofficial Home Assistant integration for [Bayrol Pool Access](https://www.bayrol-poolaccess.de/webview).
 
@@ -56,8 +56,6 @@ This integration uses the Bayrol webview HTTP API documented/reverse-engineered 
 ## Disclaimer
 
 This is an **unofficial** community project. It is not affiliated with or endorsed by Bayrol. Use at your own risk.
-
-Brand logos are not included; you may add custom icons via Home Assistant entity customization.
 
 ## Development
 

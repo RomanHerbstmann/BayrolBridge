@@ -3,10 +3,10 @@
   "name": "Bayrol Pool",
   "codeowners": ["@rherbstmann"],
   "config_flow": true,
-  "documentation": "https://github.com/rherbstmann/ha-bayrol-pool",
+  "documentation": "https://github.com/RomanHerbstmann/BayrolBridge",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/rherbstmann/ha-bayrol-pool/issues",
+  "issue_tracker": "https://github.com/RomanHerbstmann/BayrolBridge/issues",
   "requirements": ["beautifulsoup4>=4.12.0"],
   "version": "0.1.0"
 }
