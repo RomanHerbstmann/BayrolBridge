@@ -137,14 +137,55 @@ class BayrolApiClient:
         return form_data
 
     @staticmethod
-    def _check_login_error(html: str) -> bool:
-        if "Fehler" not in html and "Zeit abgelaufen" not in html:
-            return False
+    def _classify_login_response(html: str) -> str:
+        """Return 'ok', 'auth' (bad credentials) or 'timeout' (captcha/session)."""
+        low = html.lower()
+        if "passwort falsch" in low or "benutzername oder passwort" in low:
+            return "auth"
+        if "zeit abgelaufen" in low:
+            return "timeout"
         soup = BeautifulSoup(html, "html.parser")
-        error = soup.find("div", class_="error_text")
-        if error:
-            _LOGGER.error("Login error: %s", error.get_text(strip=True))
-        return True
+        if soup.find("div", class_="error_text"):
+            return "auth"
+        return "ok"
+
+    async def _refresh_login_form(
+        self, username: str, password: str
+    ) -> dict[str, str]:
+        """Reload portal login form (refresh PHPSESSID / captcha timing)."""
+        async with self._session.get(
+            self._url(PATH_LOGIN_POST),
+            headers=self._headers(),
+            timeout=self._timeout,
+            allow_redirects=True,
+        ) as response:
+            phpsessid = self._extract_phpsessid(response)
+            if phpsessid:
+                self._phpsessid = phpsessid
+            html = await response.text()
+
+        form_data = self._parse_login_form(html)
+        if not form_data:
+            raise BayrolConnectionError("Login form fields missing")
+        form_data["username"] = username
+        form_data["password"] = password
+        form_data.setdefault("login", "Anmelden")
+        return form_data
+
+    async def _submit_login(
+        self, form_data: dict[str, str], login_url: str
+    ) -> str:
+        """POST login credentials; return response body."""
+        headers = self._headers(LOGIN_HEADERS)
+        headers["Referer"] = self._url(PATH_LOGIN_POST)
+        async with self._session.post(
+            login_url,
+            headers=headers,
+            data=form_data,
+            timeout=self._timeout,
+            allow_redirects=True,
+        ) as response:
+            return await response.text()
 
     async def _login_locked(self, username: str, password: str) -> None:
         """Authenticate (caller must hold ``_lock``)."""
@@ -154,7 +195,7 @@ class BayrolApiClient:
         self._phpsessid = None
         self._logged_in = False
 
-        init_paths = (PATH_INDEX, PATH_LOGIN_MOBILE, PATH_LOGIN_PORTAL)
+        init_paths = (PATH_LOGIN_POST, PATH_INDEX, PATH_LOGIN_PORTAL)
         form_html: str | None = None
 
         for path in init_paths:
@@ -187,29 +228,43 @@ class BayrolApiClient:
 
         form_data["username"] = username
         form_data["password"] = password
+        form_data.setdefault("login", "Anmelden")
 
         post_urls = (
             self._url(PATH_LOGIN_POST),
             self._url(PATH_LOGIN_PORTAL),
         )
+        timeout_retried = False
         last_error: Exception | None = None
         for login_url in post_urls:
             try:
-                headers = self._headers(LOGIN_HEADERS)
-                headers["Referer"] = self._url(PATH_LOGIN_MOBILE)
-                async with self._session.post(
-                    login_url,
-                    headers=headers,
-                    data=form_data,
-                    timeout=self._timeout,
-                    allow_redirects=True,
-                ) as response:
-                    content = await response.text()
-                    if self._check_login_error(content):
-                        raise BayrolAuthError("Invalid credentials")
+                content = await self._submit_login(form_data, login_url)
+                result = self._classify_login_response(content)
+
+                if result == "timeout" and not timeout_retried:
+                    timeout_retried = True
+                    form_data = await self._refresh_login_form(username, password)
+                    content = await self._submit_login(
+                        form_data, self._url(PATH_LOGIN_POST)
+                    )
+                    result = self._classify_login_response(content)
+
+                if result == "auth":
+                    soup = BeautifulSoup(content, "html.parser")
+                    error = soup.find("div", class_="error_text")
+                    if error:
+                        _LOGGER.error(
+                            "Login error: %s", error.get_text(strip=True)
+                        )
+                    raise BayrolAuthError("Invalid credentials")
+                if result == "ok":
                     self._logged_in = True
                     return
+                if result == "timeout":
+                    raise BayrolConnectionError("Login captcha/timeout")
             except BayrolAuthError:
+                raise
+            except BayrolConnectionError:
                 raise
             except aiohttp.ClientError as err:
                 last_error = err

@@ -44,7 +44,7 @@ async def test_login_and_fetch(
             headers={"Set-Cookie": "PHPSESSID=testsession; path=/"},
         )
         mocked.post(
-            re.compile(rf"{re.escape(BASE_URL)}/m/login\.php.*"),
+            re.compile(rf"{re.escape(BASE_URL)}/.*login.*"),
             body="<html>OK</html>",
         )
         mocked.get(
@@ -91,6 +91,109 @@ async def test_login_invalid_auth(login_form_html: str) -> None:
             client = BayrolApiClient(session)
             with pytest.raises(BayrolAuthError):
                 await client.login("bad", "credentials")
+
+
+def _login_post_requests(mocked: aioresponses) -> list:
+    """Return recorded login POST calls (aioresponses strips query strings)."""
+    return [
+        call
+        for (method, _url), calls in mocked.requests.items()
+        if method == "POST" and "login" in str(_url)
+        for call in calls
+    ]
+
+
+async def test_login_sends_login_button(login_form_html: str) -> None:
+    """POST body must include login=Anmelden per portal form."""
+    with aioresponses() as mocked:
+        mocked.get(
+            re.compile(rf"{re.escape(BASE_URL)}/.*"),
+            body=login_form_html,
+            headers={"Set-Cookie": "PHPSESSID=testsession; path=/"},
+        )
+        mocked.post(
+            re.compile(rf"{re.escape(BASE_URL)}/p/login\.php.*"),
+            body="<html>OK</html>",
+        )
+
+        async with aiohttp.ClientSession() as session:
+            client = BayrolApiClient(session)
+            await client.login("user@example.com", "secret")
+
+        posts = _login_post_requests(mocked)
+        assert len(posts) == 1
+        post_data = posts[0].kwargs["data"]
+        assert post_data["login"] == "Anmelden"
+        assert post_data["username"] == "user@example.com"
+        assert post_data["password"] == "secret"
+
+
+async def test_login_invalid_credentials_message(login_form_html: str) -> None:
+    """Portal auth error text raises BayrolAuthError."""
+    error_html = (
+        '<html><div class="error_text"><b>Fehler</b><br>'
+        "Benutzername oder Passwort falsch!</div></html>"
+    )
+    with aioresponses() as mocked:
+        mocked.get(
+            re.compile(rf"{re.escape(BASE_URL)}/.*"),
+            body=login_form_html,
+            headers={"Set-Cookie": "PHPSESSID=testsession; path=/"},
+        )
+        mocked.post(
+            re.compile(rf"{re.escape(BASE_URL)}/.*login.*"),
+            body=error_html,
+        )
+
+        async with aiohttp.ClientSession() as session:
+            client = BayrolApiClient(session)
+            with pytest.raises(BayrolAuthError, match="Invalid credentials"):
+                await client.login("bad", "wrong")
+
+
+async def test_login_timeout_retry_success(login_form_html: str) -> None:
+    """Captcha timeout triggers one refresh and succeeds on retry."""
+    timeout_html = "<html>Zeit abgelaufen, bitte Seite neu laden</html>"
+    login_post = re.compile(rf"{re.escape(BASE_URL)}/p/login\.php.*")
+    with aioresponses() as mocked:
+        mocked.get(
+            re.compile(rf"{re.escape(BASE_URL)}/.*"),
+            body=login_form_html,
+            headers={"Set-Cookie": "PHPSESSID=testsession; path=/"},
+        )
+        mocked.post(login_post, body=timeout_html)
+        mocked.post(login_post, body="<html>OK</html>")
+
+        async with aiohttp.ClientSession() as session:
+            client = BayrolApiClient(session)
+            await client.login("user", "pass")
+
+        assert len(_login_post_requests(mocked)) == 2
+
+
+async def test_login_timeout_fails(login_form_html: str) -> None:
+    """Repeated captcha timeout raises BayrolConnectionError."""
+    timeout_html = "<html>Zeit abgelaufen, bitte Seite neu laden</html>"
+    with aioresponses() as mocked:
+        mocked.get(
+            re.compile(rf"{re.escape(BASE_URL)}/.*"),
+            body=login_form_html,
+            headers={"Set-Cookie": "PHPSESSID=testsession; path=/"},
+        )
+        mocked.post(
+            re.compile(rf"{re.escape(BASE_URL)}/p/login\.php.*"),
+            body=timeout_html,
+            repeat=True,
+        )
+
+        async with aiohttp.ClientSession() as session:
+            client = BayrolApiClient(session)
+            with pytest.raises(
+                BayrolConnectionError, match="Login captcha/timeout"
+            ):
+                await client.login("user", "pass")
+
+        assert len(_login_post_requests(mocked)) == 2
 
 
 async def test_relogin_without_deadlock(
