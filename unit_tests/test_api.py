@@ -27,9 +27,6 @@ def test_parse_pool_data(pool_data_html: str) -> None:
     assert data["status"] == "online"
 
 
-pytestmark = pytest.mark.asyncio
-
-
 async def test_login_and_fetch(
     login_form_html: str,
     plants_html: str,

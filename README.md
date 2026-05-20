@@ -61,7 +61,7 @@ This is an **unofficial** community project. It is not affiliated with or endors
 
 ```bash
 pip install -r requirements-test.txt
-pytest tests/
+pytest
 ```
 
 ## License
