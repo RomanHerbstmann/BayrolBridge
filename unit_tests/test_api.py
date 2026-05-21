@@ -9,14 +9,14 @@ import aiohttp
 import pytest
 from aioresponses import aioresponses
 
-from custom_components.bayrol_pool.api import (
+from custom_components.bayrol_bridge.api import (
     BayrolApiClient,
     BayrolAuthError,
     BayrolConnectionError,
     _parse_control_states,
     _parse_pool_data,
 )
-from custom_components.bayrol_pool.const import BASE_URL, PATH_DATA_JSON
+from custom_components.bayrol_bridge.const import BASE_URL, PATH_DATA_JSON
 
 def test_parse_pool_data(pool_data_html: str) -> None:
     """Parse measurement values from HTML."""

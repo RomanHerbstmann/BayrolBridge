@@ -1,4 +1,4 @@
-"""Data update coordinator for Bayrol Pool."""
+"""Data update coordinator for Bayrol Bridge."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from .api import BayrolApiClient, BayrolAuthError, BayrolConnectionError
 _LOGGER = logging.getLogger(__name__)
 
 
-class BayrolPoolCoordinator(DataUpdateCoordinator[dict]):
+class BayrolBridgeCoordinator(DataUpdateCoordinator[dict]):
     """Fetch Bayrol pool data periodically."""
 
     def __init__(
@@ -30,7 +30,7 @@ class BayrolPoolCoordinator(DataUpdateCoordinator[dict]):
         super().__init__(
             hass,
             _LOGGER,
-            name="bayrol_pool",
+            name="bayrol_bridge",
             update_interval=timedelta(seconds=scan_interval),
         )
 

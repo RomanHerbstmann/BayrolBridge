@@ -1,4 +1,4 @@
-# Bayrol Pool – Home Assistant Custom Integration
+# Bayrol Bridge – Home Assistant Custom Integration
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
 [![hassfest](https://github.com/RomanHerbstmann/BayrolBridge/actions/workflows/validate.yml/badge.svg)](https://github.com/RomanHerbstmann/BayrolBridge/actions/workflows/validate.yml)
@@ -18,13 +18,13 @@ Unofficial Home Assistant integration for [Bayrol Pool Access](https://www.bayro
 ### HACS (recommended)
 
 1. Add this repository as a [custom repository](https://hacs.xyz/docs/faq/custom_repositories/) (category: Integration).
-2. Install **Bayrol Pool** via HACS.
+2. Install **Bayrol Bridge** via HACS.
 3. Restart Home Assistant.
 4. Add the integration via **Settings → Devices & services → Add integration**.
 
 ### Manual
 
-Copy `custom_components/bayrol_pool` into your Home Assistant `config/custom_components/` directory and restart.
+Copy `custom_components/bayrol_bridge` into your Home Assistant `config/custom_components/` directory and restart.
 
 ## Configuration
 

@@ -1,10 +1,10 @@
-"""Constants for the Bayrol Pool integration."""
+"""Constants for the Bayrol Bridge integration."""
 
 from __future__ import annotations
 
 from typing import Final, TypedDict
 
-DOMAIN: Final = "bayrol_pool"
+DOMAIN: Final = "bayrol_bridge"
 
 BASE_URL: Final = "https://www.bayrol-poolaccess.de/webview"
 

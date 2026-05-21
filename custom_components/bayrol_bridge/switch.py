@@ -1,4 +1,4 @@
-"""Switch platform for Bayrol Pool."""
+"""Switch platform for Bayrol Bridge."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from .const import (
     DOMAIN,
     get_controls,
 )
-from .entity import BayrolPoolEntity
+from .entity import BayrolBridgeEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,17 +39,17 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Bayrol Pool switches."""
+    """Set up Bayrol Bridge switches."""
     runtime = hass.data[DOMAIN][entry.entry_id]
     coordinator = runtime["coordinator"]
     device_name = runtime["device_name"]
     cid = runtime["cid"]
     chlor_method = _get_chlor_method(entry)
 
-    entities: list[BayrolPoolSwitch] = []
+    entities: list[BayrolBridgeSwitch] = []
     for control_key, control in get_controls(chlor_method).items():
         entities.append(
-            BayrolPoolSwitch(
+            BayrolBridgeSwitch(
                 coordinator,
                 entry.entry_id,
                 device_name,
@@ -62,7 +62,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class BayrolPoolSwitch(BayrolPoolEntity, SwitchEntity):
+class BayrolBridgeSwitch(BayrolBridgeEntity, SwitchEntity):
     """Bayrol dosing switch."""
 
     def __init__(

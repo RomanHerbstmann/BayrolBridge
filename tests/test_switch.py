@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.bayrol_pool.const import CHLOR_METHODS, CONF_CHLOR_METHOD, DOMAIN
-from custom_components.bayrol_pool.switch import BayrolPoolSwitch, async_setup_entry
+from custom_components.bayrol_bridge.const import CHLOR_METHODS, CONF_CHLOR_METHOD, DOMAIN
+from custom_components.bayrol_bridge.switch import BayrolBridgeSwitch, async_setup_entry
 
 pytestmark = pytest.mark.asyncio
 
@@ -19,7 +19,7 @@ async def test_switch_turn_on_off() -> None:
     coordinator.async_request_refresh = AsyncMock()
     coordinator.data = {"ph_dosing": False, "chlorine_dosing": False}
 
-    switch = BayrolPoolSwitch(
+    switch = BayrolBridgeSwitch(
         coordinator,
         "entry1",
         "Pool",
@@ -47,9 +47,9 @@ async def test_setup_entry_none_skips_chlorine_switch(hass) -> None:
     coordinator = MagicMock()
     hass.data = {DOMAIN: {"entry1": {"coordinator": coordinator, "device_name": "Pool", "cid": "42"}}}
 
-    entities: list[BayrolPoolSwitch] = []
+    entities: list[BayrolBridgeSwitch] = []
 
-    def _add(new_entities: list[BayrolPoolSwitch]) -> None:
+    def _add(new_entities: list[BayrolBridgeSwitch]) -> None:
         entities.extend(new_entities)
 
     await async_setup_entry(hass, entry, _add)
@@ -75,9 +75,9 @@ async def test_setup_entry_salt_uses_item_540(hass) -> None:
     coordinator.client = client
     hass.data = {DOMAIN: {"entry1": {"coordinator": coordinator, "device_name": "Pool", "cid": "42"}}}
 
-    entities: list[BayrolPoolSwitch] = []
+    entities: list[BayrolBridgeSwitch] = []
 
-    def _add(new_entities: list[BayrolPoolSwitch]) -> None:
+    def _add(new_entities: list[BayrolBridgeSwitch]) -> None:
         entities.extend(new_entities)
 
     await async_setup_entry(hass, entry, _add)
@@ -97,9 +97,9 @@ async def test_setup_entry_redox_uses_item_5154(hass) -> None:
     coordinator = MagicMock()
     hass.data = {DOMAIN: {"entry1": {"coordinator": coordinator, "device_name": "Pool", "cid": "42"}}}
 
-    entities: list[BayrolPoolSwitch] = []
+    entities: list[BayrolBridgeSwitch] = []
 
-    def _add(new_entities: list[BayrolPoolSwitch]) -> None:
+    def _add(new_entities: list[BayrolBridgeSwitch]) -> None:
         entities.extend(new_entities)
 
     await async_setup_entry(hass, entry, _add)

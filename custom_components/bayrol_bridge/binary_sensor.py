@@ -1,4 +1,4 @@
-"""Binary sensor platform for Bayrol Pool."""
+"""Binary sensor platform for Bayrol Bridge."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from .const import (
     DOMAIN,
     get_controls,
 )
-from .entity import BayrolPoolEntity
+from .entity import BayrolBridgeEntity
 from .switch import _get_chlor_method
 
 DOSING_KEYS = {
@@ -40,7 +40,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Bayrol Pool binary sensors."""
+    """Set up Bayrol Bridge binary sensors."""
     runtime = hass.data[DOMAIN][entry.entry_id]
     coordinator = runtime["coordinator"]
     device_name = runtime["device_name"]
@@ -48,15 +48,15 @@ async def async_setup_entry(
     entry_id = entry.entry_id
     chlor_method = _get_chlor_method(entry)
 
-    entities: list[BayrolPoolEntity] = [
-        BayrolPoolConnectivityBinary(
+    entities: list[BayrolBridgeEntity] = [
+        BayrolBridgeConnectivityBinary(
             coordinator, entry_id, device_name, cid
         ),
     ]
 
     for control_key in get_controls(chlor_method):
         entities.append(
-            BayrolPoolDosingBinary(
+            BayrolBridgeDosingBinary(
                 coordinator,
                 entry_id,
                 device_name,
@@ -71,7 +71,7 @@ async def async_setup_entry(
         (DATA_TEMPERATURE, "temperature_alarm"),
     ):
         entities.append(
-            BayrolPoolAlarmBinary(
+            BayrolBridgeAlarmBinary(
                 coordinator,
                 entry_id,
                 device_name,
@@ -84,7 +84,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class BayrolPoolConnectivityBinary(BayrolPoolEntity, BinarySensorEntity):
+class BayrolBridgeConnectivityBinary(BayrolBridgeEntity, BinarySensorEntity):
     """Cloud connectivity binary sensor."""
 
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
@@ -114,7 +114,7 @@ class BayrolPoolConnectivityBinary(BayrolPoolEntity, BinarySensorEntity):
         return self.coordinator.last_update_success
 
 
-class BayrolPoolDosingBinary(BayrolPoolEntity, BinarySensorEntity):
+class BayrolBridgeDosingBinary(BayrolBridgeEntity, BinarySensorEntity):
     """Active dosing status per control."""
 
     _attr_device_class = BinarySensorDeviceClass.RUNNING
@@ -144,7 +144,7 @@ class BayrolPoolDosingBinary(BayrolPoolEntity, BinarySensorEntity):
         return bool(value)
 
 
-class BayrolPoolAlarmBinary(BayrolPoolEntity, BinarySensorEntity):
+class BayrolBridgeAlarmBinary(BayrolBridgeEntity, BinarySensorEntity):
     """Measurement alarm binary sensor."""
 
     _attr_device_class = BinarySensorDeviceClass.PROBLEM

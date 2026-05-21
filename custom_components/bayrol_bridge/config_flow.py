@@ -1,4 +1,4 @@
-"""Config flow for Bayrol Pool."""
+"""Config flow for Bayrol Bridge."""
 
 from __future__ import annotations
 
@@ -59,8 +59,8 @@ def _chlor_method_schema(default: str) -> vol.Schema:
     )
 
 
-class BayrolPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle Bayrol Pool config flow."""
+class BayrolBridgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle Bayrol Bridge config flow."""
 
     VERSION = 1
 
@@ -227,13 +227,13 @@ class BayrolPoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(
         config_entry: ConfigEntry,
-    ) -> BayrolPoolOptionsFlowHandler:
+    ) -> BayrolBridgeOptionsFlowHandler:
         """Get options flow."""
-        return BayrolPoolOptionsFlowHandler()
+        return BayrolBridgeOptionsFlowHandler()
 
 
-class BayrolPoolOptionsFlowHandler(OptionsFlowWithReload):
-    """Handle Bayrol Pool options."""
+class BayrolBridgeOptionsFlowHandler(OptionsFlowWithReload):
+    """Handle Bayrol Bridge options."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None

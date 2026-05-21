@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Bayrol Pool Access",
+        "title": "Bayrol Bridge",
         "description": "Melden Sie sich mit Ihrem Bayrol-Pool-Access-Konto an.",
         "data": {
           "username": "E-Mail / Benutzername",
@@ -25,7 +25,7 @@
         }
       },
       "reauth_confirm": {
-        "title": "Bayrol Pool Access erneut anmelden",
+        "title": "Bayrol Bridge – erneut anmelden",
         "description": "Ihre Bayrol-Pool-Access-Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.",
         "data": {
           "username": "E-Mail / Benutzername",

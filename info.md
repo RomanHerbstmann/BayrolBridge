@@ -1,4 +1,4 @@
-# Bayrol Pool
+# Bayrol Bridge
 
 Home Assistant integration for Bayrol Pool Access (`bayrol-poolaccess.de`).
 

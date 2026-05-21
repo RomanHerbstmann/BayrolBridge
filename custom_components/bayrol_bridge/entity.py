@@ -1,4 +1,4 @@
-"""Base entity for Bayrol Pool."""
+"""Base entity for Bayrol Bridge."""
 
 from __future__ import annotations
 
@@ -6,17 +6,17 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .coordinator import BayrolPoolCoordinator
+from .coordinator import BayrolBridgeCoordinator
 
 
-class BayrolPoolEntity(CoordinatorEntity[BayrolPoolCoordinator]):
-    """Base Bayrol Pool entity."""
+class BayrolBridgeEntity(CoordinatorEntity[BayrolBridgeCoordinator]):
+    """Base Bayrol Bridge entity."""
 
     _attr_has_entity_name = True
 
     def __init__(
         self,
-        coordinator: BayrolPoolCoordinator,
+        coordinator: BayrolBridgeCoordinator,
         entry_id: str,
         device_name: str,
         cid: str,

@@ -1,4 +1,4 @@
-"""Sensor platform for Bayrol Pool."""
+"""Sensor platform for Bayrol Bridge."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DATA_PH, DATA_REDOX, DATA_TEMPERATURE, DOMAIN
-from .entity import BayrolPoolEntity
+from .entity import BayrolBridgeEntity
 
 
 async def async_setup_entry(
@@ -21,15 +21,15 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Bayrol Pool sensors."""
+    """Set up Bayrol Bridge sensors."""
     runtime = hass.data[DOMAIN][entry.entry_id]
     coordinator = runtime["coordinator"]
     device_name = runtime["device_name"]
     cid = runtime["cid"]
     entry_id = entry.entry_id
 
-    sensors: list[BayrolPoolSensor] = [
-        BayrolPoolSensor(
+    sensors: list[BayrolBridgeSensor] = [
+        BayrolBridgeSensor(
             coordinator,
             entry_id,
             device_name,
@@ -41,7 +41,7 @@ async def async_setup_entry(
             None,
             "mdi:ph",
         ),
-        BayrolPoolSensor(
+        BayrolBridgeSensor(
             coordinator,
             entry_id,
             device_name,
@@ -53,7 +53,7 @@ async def async_setup_entry(
             None,
             "mdi:flash",
         ),
-        BayrolPoolSensor(
+        BayrolBridgeSensor(
             coordinator,
             entry_id,
             device_name,
@@ -70,7 +70,7 @@ async def async_setup_entry(
     async_add_entities(sensors)
 
 
-class BayrolPoolSensor(BayrolPoolEntity, SensorEntity):
+class BayrolBridgeSensor(BayrolBridgeEntity, SensorEntity):
     """Measurement sensor."""
 
     def __init__(

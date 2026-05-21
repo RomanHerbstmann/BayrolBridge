@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Bayrol Pool Access",
+        "title": "Bayrol Bridge",
         "description": "Sign in with your Bayrol Pool Access account.",
         "data": {
           "username": "Email / username",
@@ -25,7 +25,7 @@
         }
       },
       "reauth_confirm": {
-        "title": "Re-authenticate Bayrol Pool Access",
+        "title": "Re-authenticate Bayrol Bridge",
         "description": "Your Bayrol Pool Access session expired. Sign in again.",
         "data": {
           "username": "Email / username",

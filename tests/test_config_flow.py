@@ -13,7 +13,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 
-from custom_components.bayrol_pool.const import BASE_URL, CONF_CHLOR_METHOD, CONF_CID, DOMAIN
+from custom_components.bayrol_bridge.const import BASE_URL, CONF_CHLOR_METHOD, CONF_CID, DOMAIN
 
 pytestmark = pytest.mark.asyncio
 
@@ -148,10 +148,10 @@ async def test_config_flow_cannot_connect(hass, login_form_html: str) -> None:
 
 async def test_config_flow_connection_error(hass) -> None:
     """Config flow handles transport errors."""
-    from custom_components.bayrol_pool.api import BayrolConnectionError
+    from custom_components.bayrol_bridge.api import BayrolConnectionError
 
     with patch(
-        "custom_components.bayrol_pool.config_flow.BayrolApiClient.login",
+        "custom_components.bayrol_bridge.config_flow.BayrolApiClient.login",
         side_effect=BayrolConnectionError("network down"),
     ):
         result = await hass.config_entries.flow.async_init(

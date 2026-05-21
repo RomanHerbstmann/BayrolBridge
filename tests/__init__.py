@@ -1,1 +1,1 @@
-"""Bayrol Pool tests."""
+"""Bayrol Bridge tests."""

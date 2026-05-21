@@ -1,4 +1,4 @@
-"""Bayrol Pool custom integration."""
+"""Bayrol Bridge custom integration."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import BayrolApiClient
 from .const import CONF_CID, CONF_DEVICE_NAME, CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN
 from .switch import _get_chlor_method
-from .coordinator import BayrolPoolCoordinator
+from .coordinator import BayrolBridgeCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,14 +24,14 @@ PLATFORMS: list[Platform] = [
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Bayrol Pool from a config entry."""
+    """Set up Bayrol Bridge from a config entry."""
     session = async_get_clientsession(hass)
     chlor_method = _get_chlor_method(entry)
     client = BayrolApiClient(session, chlor_method=chlor_method)
     client._username = entry.data[CONF_USERNAME]
     client._password = entry.data[CONF_PASSWORD]
 
-    coordinator = BayrolPoolCoordinator(
+    coordinator = BayrolBridgeCoordinator(
         hass,
         client,
         entry.data[CONF_CID],

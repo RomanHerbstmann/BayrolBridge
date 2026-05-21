@@ -11,13 +11,13 @@ from aioresponses import aioresponses
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
-from custom_components.bayrol_pool.api import (
+from custom_components.bayrol_bridge.api import (
     BayrolApiClient,
     BayrolAuthError,
     BayrolConnectionError,
 )
-from custom_components.bayrol_pool.const import BASE_URL
-from custom_components.bayrol_pool.coordinator import BayrolPoolCoordinator
+from custom_components.bayrol_bridge.const import BASE_URL
+from custom_components.bayrol_bridge.coordinator import BayrolBridgeCoordinator
 
 pytestmark = pytest.mark.asyncio
 
@@ -45,7 +45,7 @@ async def test_coordinator_update(
         async with aiohttp.ClientSession() as session:
             client = BayrolApiClient(session)
             await client.login("user", "pass")
-            coordinator = BayrolPoolCoordinator(hass, client, "7", 60)
+            coordinator = BayrolBridgeCoordinator(hass, client, "7", 60)
             await coordinator.async_refresh()
 
         assert coordinator.data is not None
@@ -57,7 +57,7 @@ async def test_coordinator_maps_auth_error(hass) -> None:
     """BayrolAuthError becomes ConfigEntryAuthFailed."""
     client = BayrolApiClient(AsyncMock())
     client.fetch_pool_data = AsyncMock(side_effect=BayrolAuthError("bad creds"))
-    coordinator = BayrolPoolCoordinator(hass, client, "7", 60)
+    coordinator = BayrolBridgeCoordinator(hass, client, "7", 60)
 
     with pytest.raises(ConfigEntryAuthFailed):
         await coordinator._async_update_data()
@@ -69,7 +69,7 @@ async def test_coordinator_maps_connection_error(hass) -> None:
     client.fetch_pool_data = AsyncMock(
         side_effect=BayrolConnectionError("network down")
     )
-    coordinator = BayrolPoolCoordinator(hass, client, "7", 60)
+    coordinator = BayrolBridgeCoordinator(hass, client, "7", 60)
 
     with pytest.raises(UpdateFailed, match="network down"):
         await coordinator._async_update_data()
