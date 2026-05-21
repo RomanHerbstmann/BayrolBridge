@@ -342,6 +342,20 @@ class BayrolApiClient:
             return "redox"
         return None
 
+    async def async_list_device_items(self, cid: str) -> list[dict[str, Any]]:
+        """Return all item codes present on the device page.
+
+        Each entry: {"item": "5.154", "css": "item5_154",
+                     "state": "active"|"inactive"|None,
+                     "classes": [...]}.
+        Best-effort, read-only; returns [] if the page can't be fetched/parsed.
+        """
+        try:
+            html = await self._fetch_device_html(cid)
+        except BayrolConnectionError:
+            return []
+        return _parse_device_items(html)
+
     async def get_controllers(self) -> list[dict[str, str]]:
         """Return available pool controllers."""
         async with self._lock:
@@ -442,6 +456,36 @@ class BayrolApiClient:
                 raise BayrolConnectionError(
                     f"setItems abgelehnt: {result.get('error')}"
                 )
+
+
+def _parse_device_items(html: str) -> list[dict[str, Any]]:
+    soup = BeautifulSoup(html, "html.parser")
+    found: dict[str, dict[str, Any]] = {}
+    for div in soup.find_all("div", class_=re.compile(r"item\d+_\d+")):
+        classes = div.get("class", [])
+        for cls in classes:
+            m = re.fullmatch(r"item(\d+)_(\d+)", cls)
+            if not m:
+                continue
+            item = f"{m.group(1)}.{m.group(2)}"
+            state = None
+            if "i_active" in classes:
+                state = "active"
+            elif "i_inactive" in classes:
+                state = "inactive"
+            if item not in found:
+                found[item] = {
+                    "item": item,
+                    "css": cls,
+                    "state": state,
+                    "classes": classes,
+                }
+            elif state and found[item]["state"] is None:
+                found[item]["state"] = state
+    return sorted(
+        found.values(),
+        key=lambda e: tuple(int(p) for p in e["item"].split(".")),
+    )
 
 
 def _parse_controllers(html: str) -> list[dict[str, str]]:

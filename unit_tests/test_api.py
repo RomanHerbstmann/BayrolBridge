@@ -14,6 +14,7 @@ from custom_components.bayrol_bridge.api import (
     BayrolAuthError,
     BayrolConnectionError,
     _parse_control_states,
+    _parse_device_items,
     _parse_pool_data,
 )
 from custom_components.bayrol_bridge.const import BASE_URL, PATH_DATA_JSON
@@ -350,6 +351,64 @@ def test_parse_control_states_none() -> None:
     states = _parse_control_states(html, "none")
     assert "chlorine_dosing" not in states
     assert states["ph_dosing"] is False
+
+
+def test_parse_device_items() -> None:
+    """Parse item codes with states, sorted numerically."""
+    html = """
+    <html><body>
+    <div class="i_item item5_154 i_inactive"></div>
+    <div class="i_item item5_42 i_active"></div>
+    <div class="i_item item5_40 i_active"></div>
+    </body></html>
+    """
+    items = _parse_device_items(html)
+    assert [e["item"] for e in items] == ["5.40", "5.42", "5.154"]
+    by_item = {e["item"]: e for e in items}
+    assert by_item["5.42"]["state"] == "active"
+    assert by_item["5.42"]["css"] == "item5_42"
+    assert by_item["5.154"]["state"] == "inactive"
+    assert by_item["5.40"]["state"] == "active"
+
+
+def test_parse_device_items_empty() -> None:
+    """Return empty list for HTML without item divs."""
+    assert _parse_device_items("") == []
+    assert _parse_device_items("<html><body></body></html>") == []
+
+
+async def test_async_list_device_items_fetch_error(
+    login_form_html: str,
+) -> None:
+    """Return [] when device page cannot be fetched."""
+    with aioresponses() as mocked:
+        _mock_login(mocked, login_form_html)
+        mocked.get(
+            f"{BASE_URL}/p/device.php?c=42",
+            status=500,
+        )
+
+        async with aiohttp.ClientSession() as session:
+            client = BayrolApiClient(session)
+            await client.login("user", "pass")
+            assert await client.async_list_device_items("42") == []
+
+
+async def test_async_list_device_items_success(
+    login_form_html: str,
+    device_html: str,
+) -> None:
+    """Return parsed items from device page."""
+    with aioresponses() as mocked:
+        _mock_login(mocked, login_form_html)
+        mocked.get(f"{BASE_URL}/p/device.php?c=42", body=device_html)
+
+        async with aiohttp.ClientSession() as session:
+            client = BayrolApiClient(session)
+            await client.login("user", "pass")
+            items = await client.async_list_device_items("42")
+            assert len(items) == 2
+            assert {e["item"] for e in items} == {"5.42", "5.154"}
 
 
 def _mock_login(mocked: aioresponses, login_form_html: str) -> None:
