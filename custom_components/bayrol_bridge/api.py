@@ -6,11 +6,11 @@ import asyncio
 import json
 import logging
 import re
-from typing import Any
+from typing import Any, cast
 
 import aiohttp
 from aiohttp import ClientSession, ClientTimeout
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from .const import (
     BASE_URL,
@@ -34,6 +34,27 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+_RELEVANT_CLASS_PARTS = (
+    "tab_box",
+    "item",
+    "i_active",
+    "i_inactive",
+    "dosing",
+    "box",
+    "tab_data",
+)
+_MAX_DEBUG_ELEMENTS = 150
+_MAX_DEBUG_CHARS = 8000
+_MAX_DEBUG_TEXT_LEN = 80
+
+_EMAIL_RE = re.compile(
+    r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
+    re.IGNORECASE,
+)
+_HEX_TOKEN_RE = re.compile(r"\b[0-9a-fA-F]{8,}\b")
+_LONG_DIGITS_RE = re.compile(r"\b\d{8,}\b")
+_SESSION_RE = re.compile(r"PHPSESSID[=:]\s*\S+", re.IGNORECASE)
 
 BASE_HEADERS = {
     "User-Agent": (
@@ -342,6 +363,16 @@ class BayrolApiClient:
             return "redox"
         return None
 
+    async def async_get_device_html_debug(
+        self, cid: str
+    ) -> list[dict[str, Any]] | dict[str, str]:
+        """Return a sanitized excerpt of the device page for troubleshooting."""
+        try:
+            html = await self._fetch_device_html(cid)
+        except BayrolConnectionError as err:
+            return {"error": str(err)}
+        return _sanitize_device_html(html, cid=cid)
+
     async def async_list_device_items(self, cid: str) -> list[dict[str, Any]]:
         """Return all item codes present on the device page.
 
@@ -456,6 +487,100 @@ class BayrolApiClient:
                 raise BayrolConnectionError(
                     f"setItems abgelehnt: {result.get('error')}"
                 )
+
+
+def _mask_sensitive(text: str, cid: str | None = None) -> str:
+    """Mask emails, tokens, CID, and session-like values in diagnostic text."""
+    if not text:
+        return text
+    result = _SESSION_RE.sub("PHPSESSID=<redacted>", text)
+    result = _EMAIL_RE.sub("<email>", result)
+    if cid:
+        result = result.replace(cid, "<cid>")
+    result = _HEX_TOKEN_RE.sub("<token>", result)
+    result = _LONG_DIGITS_RE.sub("<digits>", result)
+    return result
+
+
+def _class_list_relevant(classes: object) -> bool:
+    if not classes:
+        return False
+    if isinstance(classes, str):
+        classes = [classes]
+    return any(
+        part in cls for cls in cast(list[str], classes) for part in _RELEVANT_CLASS_PARTS
+    )
+
+
+def _collect_relevant_nodes(soup: BeautifulSoup) -> list[Tag]:
+    """Collect measurement/dosing nodes and their direct parent containers."""
+    collected: dict[int, Tag] = {}
+    for element in soup.find_all(True):
+        if not _class_list_relevant(element.get("class")):
+            continue
+        for node in (element, element.parent):
+            if not isinstance(node, Tag) or not node.name:
+                continue
+            collected[id(node)] = node
+    return [el for el in soup.find_all(True) if id(el) in collected]
+
+
+def _sanitize_device_html(
+    html: str, *, cid: str | None = None
+) -> list[dict[str, Any]]:
+    """Extract a compact, redacted structure from device page HTML."""
+    soup = BeautifulSoup(html, "html.parser")
+    for tag in soup.find_all(["script", "style", "svg"]):
+        tag.decompose()
+
+    nodes = _collect_relevant_nodes(soup)
+    result: list[dict[str, Any]] = []
+    total_chars = 0
+    truncated = False
+
+    for element in nodes:
+        if len(result) >= _MAX_DEBUG_ELEMENTS:
+            truncated = True
+            break
+
+        classes = element.get("class", [])
+        if isinstance(classes, str):
+            classes = [classes]
+        class_list = [_mask_sensitive(c, cid) for c in classes]
+
+        elem_id = element.get("id")
+        if elem_id:
+            elem_id = _mask_sensitive(str(elem_id), cid)
+        else:
+            elem_id = None
+
+        text = _mask_sensitive(element.get_text(separator=" ", strip=True), cid)
+        if len(text) > _MAX_DEBUG_TEXT_LEN:
+            text = text[: _MAX_DEBUG_TEXT_LEN - 3] + "..."
+
+        entry: dict[str, Any] = {
+            "tag": element.name,
+            "class": class_list,
+            "id": elem_id,
+            "text": text,
+        }
+        entry_json = json.dumps(entry, ensure_ascii=False)
+        if total_chars + len(entry_json) > _MAX_DEBUG_CHARS and result:
+            truncated = True
+            break
+        result.append(entry)
+        total_chars += len(entry_json)
+
+    if truncated:
+        result.append(
+            {
+                "tag": "truncated",
+                "class": [],
+                "id": None,
+                "text": "...truncated",
+            }
+        )
+    return result
 
 
 def _parse_device_items(html: str) -> list[dict[str, Any]]:

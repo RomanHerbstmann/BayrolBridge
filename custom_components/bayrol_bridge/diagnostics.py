@@ -8,7 +8,7 @@ from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN, resolve_controls
+from .const import CONF_DEBUG_HTML, DOMAIN, resolve_controls
 
 TO_REDACT = {"username", "password"}
 
@@ -25,12 +25,18 @@ async def async_get_config_entry_diagnostics(
     device_items = await client.async_list_device_items(cid)
     effective = resolve_controls(entry.data, entry.options)
 
+    merged = {**entry.data, **entry.options}
+    debug_html = None
+    if merged.get(CONF_DEBUG_HTML):
+        debug_html = await client.async_get_device_html_debug(cid)
+
     return {
         "options": async_redact_data(
-            {**entry.data, **entry.options},
+            merged,
             TO_REDACT,
         ),
         "effective_controls": effective,
         "device_items": device_items,
+        "device_html_debug": debug_html,
         "coordinator_data": coordinator.data,
     }

@@ -98,6 +98,10 @@ on the device page, including whether it currently reads as active or inactive.
 Pick the relevant code and enter it in the options (chlorine item / pH item),
 then verify by toggling once and checking the Bayrol portal.
 
+If `device_items` stays empty on your device, enable **HTML diagnostics (troubleshooting
+only)** under the integration options, download diagnostics again, then disable the
+switch after analysis.
+
 ## Entities
 
 | Entity | Description |

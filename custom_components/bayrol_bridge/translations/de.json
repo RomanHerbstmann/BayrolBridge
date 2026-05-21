@@ -49,7 +49,8 @@
           "chlor_item": "Chlor-Item überschreiben (leer = aus Methode)",
           "ph_item": "pH-Item",
           "dosing_on": "Wert für EIN",
-          "dosing_off": "Wert für AUS"
+          "dosing_off": "Wert für AUS",
+          "debug_html": "HTML-Diagnose aktivieren (nur zur Fehlersuche)"
         },
         "data_description": {
           "chlor_item": "Nur ausfüllen, wenn die Methode nicht das richtige Item liefert (z. B. 5.154 oder 5.40).",

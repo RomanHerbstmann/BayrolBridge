@@ -99,6 +99,10 @@ der Geräteseite gefundenen `item`-Code inklusive des aktuellen Zustands aktiv o
 inaktiv. Den passenden Code in den Optionen eintragen (Chlor-Item / pH-Item), dann
 einmal umschalten und im Bayrol-Portal prüfen.
 
+Bleibt `device_items` bei deinem Gerät leer, aktiviere unter den Integrationsoptionen
+die **HTML-Diagnose (nur zur Fehlersuche)**, lade die Diagnose erneut herunter und
+deaktiviere den Schalter danach wieder.
+
 ## Entitäten
 
 | Entität | Beschreibung |

@@ -49,7 +49,8 @@
           "chlor_item": "Override chlorine item (empty = from method)",
           "ph_item": "pH item",
           "dosing_on": "Value for ON",
-          "dosing_off": "Value for OFF"
+          "dosing_off": "Value for OFF",
+          "debug_html": "Enable HTML diagnostics (troubleshooting only)"
         },
         "data_description": {
           "chlor_item": "Only fill in if the method does not provide the correct item (e.g. 5.154 or 5.40).",

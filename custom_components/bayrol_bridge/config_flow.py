@@ -21,12 +21,14 @@ from .const import (
     CONF_CHLOR_ITEM,
     CONF_CHLOR_METHOD,
     CONF_CID,
+    CONF_DEBUG_HTML,
     CONF_DEVICE_NAME,
     CONF_DOSING_OFF,
     CONF_DOSING_ON,
     CONF_PH_ITEM,
     CONF_SCAN_INTERVAL,
     DEFAULT_CHLOR_METHOD,
+    DEFAULT_DEBUG_HTML,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     DOSING_OFF,
@@ -252,14 +254,28 @@ class BayrolBridgeOptionsFlowHandler(OptionsFlowWithReload):
         def cur(key: str, fallback: str) -> str:
             return options.get(key, data.get(key, fallback))
 
+        def cur_bool(key: str, fallback: bool) -> bool:
+            if key in options:
+                val = options[key]
+            elif key in data:
+                val = data[key]
+            else:
+                return fallback
+            return val if isinstance(val, bool) else fallback
+
         current_method = cur(CONF_CHLOR_METHOD, DEFAULT_CHLOR_METHOD)
 
         if user_input is not None:
-            cleaned = {
-                k: (v.strip() if isinstance(v, str) else v)
-                for k, v in user_input.items()
-            }
-            cleaned = {k: v for k, v in cleaned.items() if v not in ("", None)}
+            cleaned: dict[str, Any] = {}
+            for key, value in user_input.items():
+                if isinstance(value, bool):
+                    cleaned[key] = value
+                elif isinstance(value, str):
+                    stripped = value.strip()
+                    if stripped:
+                        cleaned[key] = stripped
+                elif value not in (None, ""):
+                    cleaned[key] = value
             return self.async_create_entry(title="", data=cleaned)
 
         schema = vol.Schema(
@@ -275,6 +291,10 @@ class BayrolBridgeOptionsFlowHandler(OptionsFlowWithReload):
                 vol.Optional(
                     CONF_DOSING_OFF, default=cur(CONF_DOSING_OFF, DOSING_OFF)
                 ): str,
+                vol.Optional(
+                    CONF_DEBUG_HTML,
+                    default=cur_bool(CONF_DEBUG_HTML, DEFAULT_DEBUG_HTML),
+                ): bool,
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

@@ -27,6 +27,8 @@ CONF_PH_ITEM: Final = "ph_item"
 CONF_CHLOR_ITEM: Final = "chlor_item"
 CONF_DOSING_ON: Final = "dosing_on"
 CONF_DOSING_OFF: Final = "dosing_off"
+CONF_DEBUG_HTML: Final = "debug_html"
+DEFAULT_DEBUG_HTML: Final = False
 
 DEFAULT_SCAN_INTERVAL: Final = 60
 MIN_SCAN_INTERVAL: Final = 30
