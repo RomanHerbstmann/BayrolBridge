@@ -11,20 +11,20 @@ from custom_components.bayrol_bridge.const import (
     CONF_CHLOR_ITEM,
     CONF_CHLOR_METHOD,
     CONF_PH_ITEM,
+    DATA_CONNECTIVITY,
     DOMAIN,
     resolve_controls,
 )
 from custom_components.bayrol_bridge.switch import BayrolBridgeSwitch, async_setup_entry
 
-pytestmark = pytest.mark.asyncio
 
-
-async def test_switch_turn_on_off() -> None:
-    """Switch toggles call API set_control."""
+@pytest.mark.asyncio
+async def test_switch_turn_on_off_optimistic() -> None:
+    """Switch toggles call API set_control and update optimistic state."""
     coordinator = MagicMock()
     coordinator.client = AsyncMock()
-    coordinator.async_request_refresh = AsyncMock()
-    coordinator.data = {"ph_dosing": False, "chlorine_dosing": False}
+    coordinator.last_update_success = True
+    coordinator.data = {DATA_CONNECTIVITY: True}
 
     switch = BayrolBridgeSwitch(
         coordinator,
@@ -34,16 +34,39 @@ async def test_switch_turn_on_off() -> None:
         "ph",
         "ph_on_off",
     )
-    with patch.object(switch, "async_write_ha_state", new_callable=AsyncMock):
+    assert switch._attr_assumed_state is True
+    assert switch.is_on is None
+
+    with patch.object(switch, "async_write_ha_state"):
         await switch.async_turn_on()
         coordinator.client.set_control.assert_awaited_with("99", "ph", True)
-        assert coordinator.data["ph_dosing"] is True
+        assert switch.is_on is True
 
         await switch.async_turn_off()
         coordinator.client.set_control.assert_awaited_with("99", "ph", False)
-        assert coordinator.data["ph_dosing"] is False
+        assert switch.is_on is False
 
 
+def test_switch_available_offline() -> None:
+    """Switch unavailable when coordinator failed or device offline."""
+    coordinator = MagicMock()
+    coordinator.last_update_success = False
+    coordinator.data = {DATA_CONNECTIVITY: False}
+
+    switch = BayrolBridgeSwitch(
+        coordinator, "entry1", "Pool", "99", "ph", "ph_on_off"
+    )
+    assert switch.available is False
+
+    coordinator.last_update_success = True
+    coordinator.data = {DATA_CONNECTIVITY: False}
+    assert switch.available is False
+
+    coordinator.data = {DATA_CONNECTIVITY: True}
+    assert switch.available is True
+
+
+@pytest.mark.asyncio
 async def test_setup_entry_none_skips_chlorine_switch(hass) -> None:
     """No chlorine switch when method is none."""
     entry = MagicMock()
@@ -69,6 +92,7 @@ async def test_setup_entry_none_skips_chlorine_switch(hass) -> None:
     )
 
 
+@pytest.mark.asyncio
 async def test_setup_entry_salt_uses_item_540(hass) -> None:
     """Salt method uses item 5.40 for chlorine control."""
     entry = MagicMock()
@@ -94,6 +118,7 @@ async def test_setup_entry_salt_uses_item_540(hass) -> None:
     assert chlor._attr_unique_id == "42_chlorine_dosing"
 
 
+@pytest.mark.asyncio
 async def test_setup_entry_redox_uses_item_5154(hass) -> None:
     """Redox method uses item 5.154 for chlorine control."""
     entry = MagicMock()
@@ -117,6 +142,7 @@ async def test_setup_entry_redox_uses_item_5154(hass) -> None:
     assert chlor._attr_unique_id == "42_chlorine_dosing"
 
 
+@pytest.mark.asyncio
 async def test_setup_entry_chlor_item_override_with_none_method(hass) -> None:
     """Chlor item override enables chlorine switch when method is none."""
     entry = MagicMock()
@@ -141,6 +167,7 @@ async def test_setup_entry_chlor_item_override_with_none_method(hass) -> None:
     )
 
 
+@pytest.mark.asyncio
 async def test_setup_entry_ph_item_override(hass) -> None:
     """Options ph_item is used for control resolution."""
     entry = MagicMock()

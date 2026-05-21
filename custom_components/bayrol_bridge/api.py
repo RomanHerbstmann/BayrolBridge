@@ -762,9 +762,9 @@ def _parse_pool_data(html: str) -> dict[str, Any]:
         try:
             data[label] = float(h1.get_text(strip=True))
             classes = box.get("class", [])
-            data[f"{label}_alarm"] = (
-                "stat_warning" in classes or "stat_alarm" in classes
-            )
+            # stat_warning is the normal tile colour on some devices (e.g. pH 7.1,
+            # Temp 17) and is not an alarm; only stat_alarm signals a real problem.
+            data[f"{label}_alarm"] = "stat_alarm" in classes
         except ValueError:
             continue
 

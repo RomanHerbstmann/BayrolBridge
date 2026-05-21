@@ -82,8 +82,6 @@
     },
     "binary_sensor": {
       "connectivity": { "name": "Verbindung" },
-      "chlorine_dosing_active": { "name": "Chlordosierung aktiv" },
-      "ph_dosing_active": { "name": "pH-Dosierung aktiv" },
       "ph_alarm": { "name": "pH-Alarm" },
       "redox_alarm": { "name": "Redox-Alarm" },
       "temperature_alarm": { "name": "Temperaturalarm" }

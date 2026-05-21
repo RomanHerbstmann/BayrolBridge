@@ -93,16 +93,19 @@ actually exposes:
 
 **Settings → Devices & services → Bayrol Bridge → (your entry) → ⋮ → Download diagnostics**
 
-In the downloaded JSON, the `device_items` section lists every `item` code found
-on the device page, including whether it currently reads as active or inactive.
-Pick the relevant code and enter it in the options (chlorine item / pH item),
-then verify by toggling once and checking the Bayrol portal.
+On some devices (e.g. Automatic Cl-pH, FW v2.30), HTTP readback of dosing states is
+not available: `getItems` returns empty items and `device_items` stays empty. Live
+measurements still arrive via `getdata.php`; dosing control uses `setItems` only.
+Use the Bayrol portal (or WebSocket/MQTT tools) to confirm actual dosing.
 
-If `device_items` stays empty on your device, enable **HTML diagnostics (troubleshooting
-only)** under the integration options, download diagnostics again, then disable the
-switch after analysis. The debug export also includes `raw_getdata` (raw `getdata.php`
-response) and `data_json_probes` (read-only attempts against `data_json.php`) to help
-derive the correct item codes when `device_html_debug` is empty on some devices.
+Where the device page exposes item divs, the `device_items` section in diagnostics
+lists each `item` code with active/inactive state. Pick the relevant code for the
+options (chlorine item / pH item), then verify by toggling once in the portal.
+
+If `device_items` stays empty, enable **HTML diagnostics (troubleshooting only)**,
+download diagnostics again, then disable the switch after analysis. The debug export
+also includes `raw_getdata` and `data_json_probes` to help derive item codes when
+`device_html_debug` is empty.
 
 ## Entities
 
@@ -111,12 +114,14 @@ derive the correct item codes when `device_html_debug` is empty on some devices.
 | `sensor.*_ph` | pH value |
 | `sensor.*_redox` | Redox potential (mV) |
 | `sensor.*_temperature` | Water temperature (°C) |
-| `switch.*_chlorine_dosing` | Chlorine / Redox dosing on/off |
-| `switch.*_ph_dosing` | pH dosing on/off |
-| `binary_sensor.*_chlorine_dosing_active` | Chlorine dosing running |
-| `binary_sensor.*_ph_dosing_active` | pH dosing running |
+| `switch.*_chlorine_dosing` | Chlorine / Redox dosing on/off (assumed state) |
+| `switch.*_ph_dosing` | pH dosing on/off (assumed state) |
 | `binary_sensor.*_connectivity` | Cloud connection |
-| `binary_sensor.*_*_alarm` | Measurement alarms |
+| `binary_sensor.*_*_alarm` | Measurement alarms (`stat_alarm` only) |
+
+The dosing switches use an **assumed (optimistic) state**: this device does not
+expose the live dosing state over the HTTP API, so the switch reflects the last
+command sent, not a measured value. Verify actual dosing in the Bayrol portal.
 
 ## API sources
 

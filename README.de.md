@@ -94,17 +94,18 @@ tatsächlich bereitstellt:
 
 **Einstellungen → Geräte & Dienste → Bayrol Bridge → (dein Eintrag) → ⋮ → Diagnose herunterladen**
 
-In der heruntergeladenen JSON-Datei listet der Abschnitt `device_items` jeden auf
-der Geräteseite gefundenen `item`-Code inklusive des aktuellen Zustands aktiv oder
-inaktiv. Den passenden Code in den Optionen eintragen (Chlor-Item / pH-Item), dann
-einmal umschalten und im Bayrol-Portal prüfen.
+Bei manchen Geräten (z. B. Automatic Cl-pH, FW v2.30) ist kein HTTP-Readback der
+Dosier-Zustände möglich: `getItems` liefert leere Items, `device_items` bleibt leer.
+Live-Messwerte kommen weiter über `getdata.php`; Dosierung wird nur per `setItems`
+gesteuert. Tatsächliche Dosierung im Bayrol-Portal (oder per WebSocket/MQTT) prüfen.
 
-Bleibt `device_items` bei deinem Gerät leer, aktiviere unter den Integrationsoptionen
-die **HTML-Diagnose (nur zur Fehlersuche)**, lade die Diagnose erneut herunter und
-deaktiviere den Schalter danach wieder. Die Debug-Diagnose enthält zusätzlich
-`raw_getdata` (rohe `getdata.php`-Antwort) und `data_json_probes` (nur lesende
-Versuche gegen `data_json.php`), falls `device_html_debug` bei manchen Geräten leer
-bleibt.
+Wo die Geräteseite Item-Divs bereitstellt, listet `device_items` in der Diagnose
+jeden `item`-Code mit aktiv/inaktiv. Passenden Code in den Optionen eintragen
+(Chlor-Item / pH-Item), dann im Portal verifizieren.
+
+Bleibt `device_items` leer, **HTML-Diagnose (nur zur Fehlersuche)** aktivieren,
+Diagnose erneut laden und den Schalter danach deaktivieren. Zusätzlich enthalten:
+`raw_getdata` und `data_json_probes`, falls `device_html_debug` leer bleibt.
 
 ## Entitäten
 
@@ -113,12 +114,14 @@ bleibt.
 | `sensor.*_ph` | pH-Wert |
 | `sensor.*_redox` | Redoxpotential (mV) |
 | `sensor.*_temperature` | Wassertemperatur (°C) |
-| `switch.*_chlorine_dosing` | Chlor / Redox-Dosierung ein/aus |
-| `switch.*_ph_dosing` | pH-Dosierung ein/aus |
-| `binary_sensor.*_chlorine_dosing_active` | Chlordosierung läuft |
-| `binary_sensor.*_ph_dosing_active` | pH-Dosierung läuft |
+| `switch.*_chlorine_dosing` | Chlor / Redox-Dosierung ein/aus (angenommener Zustand) |
+| `switch.*_ph_dosing` | pH-Dosierung ein/aus (angenommener Zustand) |
 | `binary_sensor.*_connectivity` | Cloud-Verbindung |
-| `binary_sensor.*_*_alarm` | Messwert-Alarme |
+| `binary_sensor.*_*_alarm` | Messwert-Alarme (nur `stat_alarm`) |
+
+Die Dosier-Schalter nutzen einen **angenommenen (optimistischen) Zustand**: Das
+Gerät liefert den Live-Dosierstatus nicht per HTTP-API; der Schalter zeigt den
+zuletzt gesendeten Befehl, keinen gemessenen Wert. Dosierung im Bayrol-Portal prüfen.
 
 ## API-Quellen
 

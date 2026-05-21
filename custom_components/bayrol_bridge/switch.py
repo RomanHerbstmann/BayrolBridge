@@ -11,8 +11,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     CONF_CHLOR_METHOD,
-    DATA_CHLORINE_DOSING,
-    DATA_PH_DOSING,
+    DATA_CONNECTIVITY,
     DEFAULT_CHLOR_METHOD,
     DOMAIN,
     resolve_controls,
@@ -20,11 +19,6 @@ from .const import (
 from .entity import BayrolBridgeEntity
 
 _LOGGER = logging.getLogger(__name__)
-
-CONTROL_STATE_KEYS = {
-    "chlorine": DATA_CHLORINE_DOSING,
-    "ph": DATA_PH_DOSING,
-}
 
 
 def _get_chlor_method(entry: ConfigEntry) -> str:
@@ -61,7 +55,7 @@ async def async_setup_entry(
 
 
 class BayrolBridgeSwitch(BayrolBridgeEntity, SwitchEntity):
-    """Bayrol dosing switch."""
+    """Bayrol dosing switch (optimistic state; no HTTP readback on some devices)."""
 
     def __init__(
         self,
@@ -75,16 +69,23 @@ class BayrolBridgeSwitch(BayrolBridgeEntity, SwitchEntity):
         """Initialize switch."""
         super().__init__(coordinator, entry_id, device_name, cid)
         self._control_key = control_key
-        self._state_key = CONTROL_STATE_KEYS[control_key]
+        self._attr_assumed_state = True
+        self._optimistic_state: bool | None = None
         self._attr_unique_id = f"{cid}_{control_key}_dosing"
         self._attr_translation_key = f"{control_key}_dosing"
 
     @property
     def is_on(self) -> bool | None:
-        """Return switch state."""
-        if self.coordinator.data is None:
-            return None
-        return self.coordinator.data.get(self._state_key)
+        """Return last commanded switch state."""
+        return self._optimistic_state
+
+    @property
+    def available(self) -> bool:
+        """Unavailable when offline; avoids misleading 'off' while disconnected."""
+        if not self.coordinator.last_update_success:
+            return False
+        data = self.coordinator.data or {}
+        return bool(data.get(DATA_CONNECTIVITY))
 
     async def async_turn_on(self, **kwargs) -> None:
         """Turn dosing on."""
@@ -98,7 +99,5 @@ class BayrolBridgeSwitch(BayrolBridgeEntity, SwitchEntity):
         await self.coordinator.client.set_control(
             self._cid, self._control_key, enabled
         )
-        if self.coordinator.data is not None:
-            self.coordinator.data[self._state_key] = enabled
-        await self.async_write_ha_state()
-        await self.coordinator.async_request_refresh()
+        self._optimistic_state = enabled
+        self.async_write_ha_state()
