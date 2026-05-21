@@ -423,6 +423,31 @@ class BayrolApiClient:
             )
         return attempts
 
+    async def async_probe_get_items(self, cid: str) -> dict[str, Any]:
+        """Read-only getItems probe with the real topics (diagnostics)."""
+        headers = JSON_HEADERS.copy()
+        headers["Referer"] = self._url(f"{PATH_DEVICE}?c={cid}")
+
+        topics = ["5.42", "5.154", "5.40", "4.2", "4.82", "4.91"]
+        payload = {
+            "device": cid,
+            "action": "getItems",
+            "data": {"items": [{"topic": t} for t in topics]},
+        }
+
+        try:
+            status, body = await self._request_text_with_retry(
+                "POST", PATH_DATA_JSON, headers=headers, json=payload
+            )
+        except BayrolConnectionError as err:
+            return {"sent_topics": topics, "error": str(err)}
+
+        return {
+            "sent_topics": topics,
+            "status": status,
+            "body_excerpt": body[:4000],
+        }
+
     async def async_list_device_items(self, cid: str) -> list[dict[str, Any]]:
         """Return all item codes present on the device page.
 

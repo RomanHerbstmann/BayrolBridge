@@ -14,7 +14,7 @@ from custom_components.bayrol_bridge.api import (
 
 pytestmark = pytest.mark.asyncio
 
-_READ_ONLY_FORBIDDEN = frozenset({"setItems", "value", "cmd"})
+_READ_ONLY_FORBIDDEN = frozenset({"setItems", "value", "cmd", "valid"})
 
 
 def _payload_keys(payload: dict | None) -> set[str]:
@@ -150,3 +150,58 @@ async def test_async_probe_data_json_payloads_are_read_only() -> None:
             assert "setItems" not in dumped
             assert '"value"' not in dumped
             assert '"cmd"' not in dumped
+
+
+async def test_async_probe_get_items_success() -> None:
+    """getItems probe sends only topic entries and returns body_excerpt on 200."""
+    client = BayrolApiClient(AsyncMock())
+    client._logged_in = True
+    client._phpsessid = "sess"
+    body = '{"error":"","data":{"items":[{"topic":"5.42","value":"1"}]}}'
+
+    captured: list[dict] = []
+
+    async def fake_request(
+        method: str, path: str, **kwargs: object
+    ) -> tuple[int, str]:
+        captured.append(kwargs.get("json"))  # type: ignore[arg-type]
+        return 200, body
+
+    with patch.object(
+        client, "_request_text_with_retry", new=AsyncMock(side_effect=fake_request)
+    ):
+        result = await client.async_probe_get_items("42")
+
+    assert result["status"] == 200
+    assert result["body_excerpt"] == body
+    assert result["sent_topics"] == ["5.42", "5.154", "5.40", "4.2", "4.82", "4.91"]
+
+    assert len(captured) == 1
+    payload = captured[0]
+    assert payload["action"] == "getItems"
+    assert payload["device"] == "42"
+    items = payload["data"]["items"]
+    assert all(set(item.keys()) == {"topic"} for item in items)
+    _assert_read_only_payload(payload)
+    dumped = json.dumps(payload)
+    assert "setItems" not in dumped
+    assert '"value"' not in dumped
+    assert '"cmd"' not in dumped
+    assert '"valid"' not in dumped
+
+
+async def test_async_probe_get_items_connection_error() -> None:
+    """Connection errors return error field without raising."""
+    client = BayrolApiClient(AsyncMock())
+    client._logged_in = True
+    client._phpsessid = "sess"
+    with patch.object(
+        client,
+        "_request_text_with_retry",
+        new=AsyncMock(side_effect=BayrolConnectionError("offline")),
+    ):
+        result = await client.async_probe_get_items("42")
+
+    assert result["error"] == "offline"
+    assert result["sent_topics"] == ["5.42", "5.154", "5.40", "4.2", "4.82", "4.91"]
+    assert "body_excerpt" not in result

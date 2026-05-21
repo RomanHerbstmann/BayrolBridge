@@ -73,6 +73,7 @@ async def async_get_config_entry_diagnostics(
     debug_html = None
     raw_getdata = None
     data_json_probes = None
+    get_items_probe = None
     if debug:
         debug_html = await client.async_get_device_html_debug(cid)
         raw_getdata = _sanitize_text(
@@ -80,6 +81,7 @@ async def async_get_config_entry_diagnostics(
         )
         probes = await client.async_probe_data_json(cid)
         data_json_probes = [_sanitize_obj(probe, cid=cid) for probe in probes]
+        get_items_probe = _sanitize_obj(await client.async_probe_get_items(cid))
 
     return {
         "options": async_redact_data(
@@ -91,5 +93,6 @@ async def async_get_config_entry_diagnostics(
         "device_html_debug": debug_html,
         "raw_getdata": raw_getdata,
         "data_json_probes": data_json_probes,
+        "get_items_probe": get_items_probe,
         "coordinator_data": coordinator.data,
     }
