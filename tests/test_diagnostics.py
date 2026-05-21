@@ -59,10 +59,14 @@ async def test_diagnostics_redacts_credentials_and_includes_device_items(
     assert result["options"]["password"] == "**REDACTED**"
     assert result["device_items"] == device_items
     assert result["device_html_debug"] is None
+    assert result["raw_getdata"] is None
+    assert result["data_json_probes"] is None
     assert "effective_controls" in result
     assert result["coordinator_data"] == coordinator.data
     client.async_list_device_items.assert_awaited_once_with("42")
     client.async_get_device_html_debug.assert_not_called()
+    client.async_get_raw_getdata.assert_not_called()
+    client.async_probe_data_json.assert_not_called()
 
 
 async def test_diagnostics_includes_html_debug_when_enabled(hass) -> None:
@@ -85,6 +89,10 @@ async def test_diagnostics_includes_html_debug_when_enabled(hass) -> None:
     client = MagicMock()
     client.async_list_device_items = AsyncMock(return_value=[])
     client.async_get_device_html_debug = AsyncMock(return_value=html_debug)
+    client.async_get_raw_getdata = AsyncMock(return_value="<getdata/>")
+    client.async_probe_data_json = AsyncMock(
+        return_value=[{"sent": {"action": "getItems"}, "status": 200, "body_excerpt": "{}"}]
+    )
     coordinator = MagicMock()
     coordinator.data = {"pH": 7.2, "status": "online"}
 
@@ -99,9 +107,13 @@ async def test_diagnostics_includes_html_debug_when_enabled(hass) -> None:
     result = await async_get_config_entry_diagnostics(hass, entry)
 
     assert result["device_html_debug"] == html_debug
+    assert result["raw_getdata"] == "<getdata/>"
+    assert len(result["data_json_probes"]) == 1
     assert result["options"]["password"] == "**REDACTED**"
     assert result["options"]["username"] == "**REDACTED**"
     dumped = str(result["device_html_debug"])
     assert "secret" not in dumped
     assert "password" not in dumped
     client.async_get_device_html_debug.assert_awaited_once_with("42")
+    client.async_get_raw_getdata.assert_awaited_once_with("42")
+    client.async_probe_data_json.assert_awaited_once_with("42")

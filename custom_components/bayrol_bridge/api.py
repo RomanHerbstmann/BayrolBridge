@@ -373,6 +373,56 @@ class BayrolApiClient:
             return {"error": str(err)}
         return _sanitize_device_html(html, cid=cid)
 
+    async def async_get_raw_getdata(self, cid: str) -> str:
+        """Return the raw getdata.php body (read-only) for diagnostics."""
+        headers = DATA_HEADERS.copy()
+        headers["Referer"] = self._url(PATH_PLANTS)
+        try:
+            status, body = await self._request_text_with_retry(
+                "GET", f"{PATH_GETDATA}?cid={cid}", headers=headers
+            )
+        except BayrolConnectionError as err:
+            return f"<error: {err}>"
+        return body if status == 200 else f"<status {status}>"
+
+    async def async_probe_data_json(self, cid: str) -> list[dict[str, Any]]:
+        """Try read-only data_json.php variants; never switch. Returns attempts."""
+        headers = JSON_HEADERS.copy()
+        headers["Referer"] = self._url(f"{PATH_DEVICE}?c={cid}")
+
+        candidate_payloads: list[dict[str, Any] | None] = [
+            {"device": cid, "action": "getItems"},
+            {"device": cid, "action": "getItems", "data": {"items": []}},
+            {"device": cid, "action": "getAll"},
+            {"device": cid, "action": "get"},
+            None,
+        ]
+
+        attempts: list[dict[str, Any]] = []
+        for payload in candidate_payloads:
+            try:
+                if payload is None:
+                    status, body = await self._request_text_with_retry(
+                        "GET", f"{PATH_DATA_JSON}?device={cid}", headers=headers
+                    )
+                    sent = "GET ?device=<cid>"
+                else:
+                    status, body = await self._request_text_with_retry(
+                        "POST", PATH_DATA_JSON, headers=headers, json=payload
+                    )
+                    sent = {k: v for k, v in payload.items() if k != "device"}
+            except BayrolConnectionError as err:
+                attempts.append({"sent": str(payload), "error": str(err)})
+                continue
+            attempts.append(
+                {
+                    "sent": sent,
+                    "status": status,
+                    "body_excerpt": body[:2000],
+                }
+            )
+        return attempts
+
     async def async_list_device_items(self, cid: str) -> list[dict[str, Any]]:
         """Return all item codes present on the device page.
 

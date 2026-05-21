@@ -101,7 +101,10 @@ einmal umschalten und im Bayrol-Portal prüfen.
 
 Bleibt `device_items` bei deinem Gerät leer, aktiviere unter den Integrationsoptionen
 die **HTML-Diagnose (nur zur Fehlersuche)**, lade die Diagnose erneut herunter und
-deaktiviere den Schalter danach wieder.
+deaktiviere den Schalter danach wieder. Die Debug-Diagnose enthält zusätzlich
+`raw_getdata` (rohe `getdata.php`-Antwort) und `data_json_probes` (nur lesende
+Versuche gegen `data_json.php`), falls `device_html_debug` bei manchen Geräten leer
+bleibt.
 
 ## Entitäten
 

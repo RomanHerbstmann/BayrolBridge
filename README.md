@@ -100,7 +100,9 @@ then verify by toggling once and checking the Bayrol portal.
 
 If `device_items` stays empty on your device, enable **HTML diagnostics (troubleshooting
 only)** under the integration options, download diagnostics again, then disable the
-switch after analysis.
+switch after analysis. The debug export also includes `raw_getdata` (raw `getdata.php`
+response) and `data_json_probes` (read-only attempts against `data_json.php`) to help
+derive the correct item codes when `device_html_debug` is empty on some devices.
 
 ## Entities
 
