@@ -1,6 +1,6 @@
 {
-  "domain": "bayrol_pool",
-  "name": "Bayrol Pool",
+  "domain": "bayrol_bridge",
+  "name": "Bayrol Bridge",
   "codeowners": ["@rherbstmann"],
   "config_flow": true,
   "documentation": "https://github.com/RomanHerbstmann/BayrolBridge",
