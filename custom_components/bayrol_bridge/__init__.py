@@ -10,7 +10,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import BayrolApiClient
-from .const import CONF_CID, CONF_DEVICE_NAME, CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import (
+    CONF_CID,
+    CONF_DEVICE_NAME,
+    CONF_SCAN_INTERVAL,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    resolve_controls,
+)
 from .switch import _get_chlor_method
 from .coordinator import BayrolBridgeCoordinator
 
@@ -27,7 +34,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Bayrol Bridge from a config entry."""
     session = async_get_clientsession(hass)
     chlor_method = _get_chlor_method(entry)
-    client = BayrolApiClient(session, chlor_method=chlor_method)
+    controls = resolve_controls(entry.data, entry.options)
+    client = BayrolApiClient(session, chlor_method=chlor_method, controls=controls)
     client._username = entry.data[CONF_USERNAME]
     client._password = entry.data[CONF_PASSWORD]
 

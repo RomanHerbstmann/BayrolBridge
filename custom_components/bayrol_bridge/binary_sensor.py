@@ -18,10 +18,9 @@ from .const import (
     DATA_REDOX,
     DATA_TEMPERATURE,
     DOMAIN,
-    get_controls,
+    resolve_controls,
 )
 from .entity import BayrolBridgeEntity
-from .switch import _get_chlor_method
 
 DOSING_KEYS = {
     "chlorine": DATA_CHLORINE_DOSING,
@@ -46,15 +45,13 @@ async def async_setup_entry(
     device_name = runtime["device_name"]
     cid = runtime["cid"]
     entry_id = entry.entry_id
-    chlor_method = _get_chlor_method(entry)
-
     entities: list[BayrolBridgeEntity] = [
         BayrolBridgeConnectivityBinary(
             coordinator, entry_id, device_name, cid
         ),
     ]
 
-    for control_key in get_controls(chlor_method):
+    for control_key in resolve_controls(entry.data, entry.options):
         entities.append(
             BayrolBridgeDosingBinary(
                 coordinator,

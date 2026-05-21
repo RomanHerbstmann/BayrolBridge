@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Final, TypedDict
 
 DOMAIN: Final = "bayrol_bridge"
@@ -22,6 +23,10 @@ CONF_CID: Final = "cid"
 CONF_DEVICE_NAME: Final = "device_name"
 CONF_SCAN_INTERVAL: Final = "scan_interval"
 CONF_CHLOR_METHOD: Final = "chlor_method"
+CONF_PH_ITEM: Final = "ph_item"
+CONF_CHLOR_ITEM: Final = "chlor_item"
+CONF_DOSING_ON: Final = "dosing_on"
+CONF_DOSING_OFF: Final = "dosing_off"
 
 DEFAULT_SCAN_INTERVAL: Final = 60
 MIN_SCAN_INTERVAL: Final = 30
@@ -50,29 +55,64 @@ class ControlConfig(TypedDict):
     name: str
 
 
-def get_controls(chlor_method: str) -> dict[str, ControlConfig]:
+def get_controls(
+    chlor_method: str,
+    *,
+    ph_item: str | None = None,
+    chlor_item: str | None = None,
+    dosing_on: str | None = None,
+    dosing_off: str | None = None,
+) -> dict[str, ControlConfig]:
     """Return dosing controls for the configured chlorine method."""
+    on = dosing_on or DOSING_ON
+    off = dosing_off or DOSING_OFF
+    eff_ph = ph_item or PH_ITEM
+
     controls: dict[str, ControlConfig] = {
         "ph": {
             "set_path": PATH_DATA_JSON,
-            "item": PH_ITEM,
-            "value_on": DOSING_ON,
-            "value_off": DOSING_OFF,
+            "item": eff_ph,
+            "value_on": on,
+            "value_off": off,
             "name": "ph_on_off",
         },
     }
-    chlor_item = CHLOR_METHODS.get(chlor_method, CHLOR_METHODS[DEFAULT_CHLOR_METHOD])[
-        "item"
-    ]
-    if chlor_item is not None:
+
+    eff_chlor = (chlor_item or "").strip() or CHLOR_METHODS.get(
+        chlor_method, CHLOR_METHODS[DEFAULT_CHLOR_METHOD]
+    )["item"]
+
+    if eff_chlor:
         controls["chlorine"] = {
             "set_path": PATH_DATA_JSON,
-            "item": chlor_item,
-            "value_on": DOSING_ON,
-            "value_off": DOSING_OFF,
+            "item": eff_chlor,
+            "value_on": on,
+            "value_off": off,
             "name": "mv_on_off",
         }
     return controls
+
+
+def resolve_controls(
+    data: Mapping[str, object], options: Mapping[str, object]
+) -> dict[str, ControlConfig]:
+    """Merge config entry data/options and return effective dosing controls."""
+    merged = {**data, **options}
+    return get_controls(
+        str(merged.get(CONF_CHLOR_METHOD, DEFAULT_CHLOR_METHOD)),
+        ph_item=_opt_str(merged.get(CONF_PH_ITEM)),
+        chlor_item=_opt_str(merged.get(CONF_CHLOR_ITEM)),
+        dosing_on=_opt_str(merged.get(CONF_DOSING_ON)),
+        dosing_off=_opt_str(merged.get(CONF_DOSING_OFF)),
+    )
+
+
+def _opt_str(value: object) -> str | None:
+    """Return stripped string or None for non-string/empty values."""
+    if not isinstance(value, str):
+        return None
+    stripped = value.strip()
+    return stripped or None
 
 
 # Keys in coordinator data

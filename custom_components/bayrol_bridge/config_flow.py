@@ -18,14 +18,21 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import BayrolApiClient, BayrolAuthError, BayrolConnectionError
 from .const import (
     CHLOR_METHODS,
+    CONF_CHLOR_ITEM,
     CONF_CHLOR_METHOD,
     CONF_CID,
     CONF_DEVICE_NAME,
+    CONF_DOSING_OFF,
+    CONF_DOSING_ON,
+    CONF_PH_ITEM,
     CONF_SCAN_INTERVAL,
     DEFAULT_CHLOR_METHOD,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    DOSING_OFF,
+    DOSING_ON,
     MIN_SCAN_INTERVAL,
+    PH_ITEM,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -239,18 +246,38 @@ class BayrolBridgeOptionsFlowHandler(OptionsFlowWithReload):
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Manage options."""
-        current = self.config_entry.options.get(
-            CONF_CHLOR_METHOD,
-            self.config_entry.data.get(CONF_CHLOR_METHOD, DEFAULT_CHLOR_METHOD),
-        )
+        data = self.config_entry.data
+        options = self.config_entry.options
+
+        def cur(key: str, fallback: str) -> str:
+            return options.get(key, data.get(key, fallback))
+
+        current_method = cur(CONF_CHLOR_METHOD, DEFAULT_CHLOR_METHOD)
 
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            cleaned = {
+                k: (v.strip() if isinstance(v, str) else v)
+                for k, v in user_input.items()
+            }
+            cleaned = {k: v for k, v in cleaned.items() if v not in ("", None)}
+            return self.async_create_entry(title="", data=cleaned)
 
-        return self.async_show_form(
-            step_id="init",
-            data_schema=_chlor_method_schema(current),
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_CHLOR_METHOD, default=current_method): vol.In(
+                    ("redox", "salt", "none")
+                ),
+                vol.Optional(CONF_CHLOR_ITEM, default=cur(CONF_CHLOR_ITEM, "")): str,
+                vol.Optional(CONF_PH_ITEM, default=cur(CONF_PH_ITEM, PH_ITEM)): str,
+                vol.Optional(
+                    CONF_DOSING_ON, default=cur(CONF_DOSING_ON, DOSING_ON)
+                ): str,
+                vol.Optional(
+                    CONF_DOSING_OFF, default=cur(CONF_DOSING_OFF, DOSING_OFF)
+                ): str,
+            }
         )
+        return self.async_show_form(step_id="init", data_schema=schema)
 
 
 class InvalidAuth(HomeAssistantError):

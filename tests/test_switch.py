@@ -6,7 +6,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.bayrol_bridge.const import CHLOR_METHODS, CONF_CHLOR_METHOD, DOMAIN
+from custom_components.bayrol_bridge.const import (
+    CHLOR_METHODS,
+    CONF_CHLOR_ITEM,
+    CONF_CHLOR_METHOD,
+    CONF_PH_ITEM,
+    DOMAIN,
+    resolve_controls,
+)
 from custom_components.bayrol_bridge.switch import BayrolBridgeSwitch, async_setup_entry
 
 pytestmark = pytest.mark.asyncio
@@ -108,3 +115,48 @@ async def test_setup_entry_redox_uses_item_5154(hass) -> None:
     chlor = next(e for e in entities if e._control_key == "chlorine")
     assert CHLOR_METHODS["redox"]["item"] == "5.154"
     assert chlor._attr_unique_id == "42_chlorine_dosing"
+
+
+async def test_setup_entry_chlor_item_override_with_none_method(hass) -> None:
+    """Chlor item override enables chlorine switch when method is none."""
+    entry = MagicMock()
+    entry.entry_id = "entry1"
+    entry.options = {CONF_CHLOR_METHOD: "none", CONF_CHLOR_ITEM: "5.40"}
+    entry.data = {}
+
+    coordinator = MagicMock()
+    hass.data = {DOMAIN: {"entry1": {"coordinator": coordinator, "device_name": "Pool", "cid": "42"}}}
+
+    entities: list[BayrolBridgeSwitch] = []
+
+    def _add(new_entities: list[BayrolBridgeSwitch]) -> None:
+        entities.extend(new_entities)
+
+    await async_setup_entry(hass, entry, _add)
+
+    assert {e._control_key for e in entities} == {"ph", "chlorine"}
+    assert resolve_controls(entry.data, entry.options)["chlorine"]["item"] == "5.40"
+    assert all(
+        e._attr_unique_id == f"42_{e._control_key}_dosing" for e in entities
+    )
+
+
+async def test_setup_entry_ph_item_override(hass) -> None:
+    """Options ph_item is used for control resolution."""
+    entry = MagicMock()
+    entry.entry_id = "entry1"
+    entry.options = {CONF_PH_ITEM: "5.77"}
+    entry.data = {CONF_CHLOR_METHOD: "none"}
+
+    coordinator = MagicMock()
+    hass.data = {DOMAIN: {"entry1": {"coordinator": coordinator, "device_name": "Pool", "cid": "42"}}}
+
+    entities: list[BayrolBridgeSwitch] = []
+
+    def _add(new_entities: list[BayrolBridgeSwitch]) -> None:
+        entities.extend(new_entities)
+
+    await async_setup_entry(hass, entry, _add)
+
+    assert resolve_controls(entry.data, entry.options)["ph"]["item"] == "5.77"
+    assert entities[0]._attr_unique_id == "42_ph_dosing"

@@ -13,7 +13,15 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 
-from custom_components.bayrol_bridge.const import BASE_URL, CONF_CHLOR_METHOD, CONF_CID, DOMAIN
+from custom_components.bayrol_bridge.const import (
+    BASE_URL,
+    CONF_CHLOR_ITEM,
+    CONF_CHLOR_METHOD,
+    CONF_CID,
+    CONF_DOSING_ON,
+    CONF_PH_ITEM,
+    DOMAIN,
+)
 
 pytestmark = pytest.mark.asyncio
 
@@ -235,6 +243,43 @@ async def test_reauth_flow_invalid_auth(hass, login_form_html: str) -> None:
         )
         assert result["type"] == "form"
         assert result["errors"]["base"] == "invalid_auth"
+
+
+async def test_options_flow_saves_overrides_and_strips_empty(hass) -> None:
+    """Options flow persists overrides; empty fields are not stored."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_USERNAME: "user@example.com",
+            CONF_PASSWORD: "secret",
+            CONF_CID: "42",
+            CONF_CHLOR_METHOD: "redox",
+        },
+        options={},
+    )
+    entry.add_to_hass(hass)
+
+    with patch.object(
+        hass.config_entries, "async_reload", new_callable=AsyncMock
+    ) as mock_reload:
+        options_flow = await hass.config_entries.options.async_init(entry.entry_id)
+        result = await hass.config_entries.options.async_configure(
+            options_flow["flow_id"],
+            {
+                CONF_CHLOR_METHOD: "none",
+                CONF_CHLOR_ITEM: "5.40",
+                CONF_PH_ITEM: "5.77",
+                CONF_DOSING_ON: "1.1",
+                "dosing_off": "",
+            },
+        )
+        assert result["type"] == "create_entry"
+        assert entry.options[CONF_CHLOR_METHOD] == "none"
+        assert entry.options[CONF_CHLOR_ITEM] == "5.40"
+        assert entry.options[CONF_PH_ITEM] == "5.77"
+        assert entry.options[CONF_DOSING_ON] == "1.1"
+        assert "dosing_off" not in entry.options
+        mock_reload.assert_awaited_once_with(entry.entry_id)
 
 
 async def test_options_flow_changes_method_and_reloads(hass) -> None:

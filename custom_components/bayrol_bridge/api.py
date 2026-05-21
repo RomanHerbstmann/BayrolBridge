@@ -15,6 +15,7 @@ from bs4 import BeautifulSoup
 from .const import (
     BASE_URL,
     CHLOR_METHODS,
+    ControlConfig,
     DATA_CHLORINE_DOSING,
     DATA_CONNECTIVITY,
     DATA_PH_DOSING,
@@ -29,7 +30,6 @@ from .const import (
     PATH_LOGIN_PORTAL,
     PATH_LOGIN_POST,
     PATH_PLANTS,
-    PH_ITEM,
     get_controls,
 )
 
@@ -90,6 +90,8 @@ class BayrolApiClient:
         session: ClientSession,
         timeout: int = 30,
         chlor_method: str = DEFAULT_CHLOR_METHOD,
+        *,
+        controls: dict[str, ControlConfig] | None = None,
     ) -> None:
         """Initialize client."""
         self._session = session
@@ -100,6 +102,7 @@ class BayrolApiClient:
         self._password: str | None = None
         self._logged_in = False
         self._chlor_method = chlor_method
+        self._controls = controls or get_controls(chlor_method)
 
     def _url(self, path: str) -> str:
         return f"{BASE_URL}/{path.lstrip('/')}"
@@ -371,9 +374,7 @@ class BayrolApiClient:
             if data.get(DATA_STATUS) != "offline":
                 try:
                     device_html = await self._fetch_device_html(cid)
-                    data.update(
-                        _parse_control_states(device_html, self._chlor_method)
-                    )
+                    data.update(_parse_control_states(device_html, self._controls))
                 except BayrolConnectionError:
                     _LOGGER.debug(
                         "Could not parse control states for controller %s",
@@ -397,7 +398,7 @@ class BayrolApiClient:
 
     async def set_control(self, cid: str, control_key: str, enabled: bool) -> None:
         """Enable or disable a dosing control."""
-        controls = get_controls(self._chlor_method)
+        controls = self._controls
         if control_key not in controls:
             raise ValueError(f"Unknown control: {control_key}")
 
@@ -528,8 +529,17 @@ def _parse_pool_data(html: str) -> dict[str, Any]:
     return data
 
 
+_CONTROL_STATE_KEYS = {
+    "chlorine": DATA_CHLORINE_DOSING,
+    "ph": DATA_PH_DOSING,
+}
+
+
 def _parse_control_states(
-    html: str, chlor_method: str = DEFAULT_CHLOR_METHOD
+    html: str,
+    controls: dict[str, ControlConfig] | str | None = None,
+    *,
+    chlor_method: str = DEFAULT_CHLOR_METHOD,
 ) -> dict[str, bool | None]:
     """Parse dosing switch states from device page HTML."""
     states: dict[str, bool | None] = {
@@ -537,12 +547,15 @@ def _parse_control_states(
         DATA_PH_DOSING: None,
     }
 
-    item_map: dict[str, str] = {PH_ITEM: DATA_PH_DOSING}
-    chlor_item = CHLOR_METHODS.get(chlor_method, CHLOR_METHODS[DEFAULT_CHLOR_METHOD])[
-        "item"
-    ]
-    if chlor_item is not None:
-        item_map[chlor_item] = DATA_CHLORINE_DOSING
+    if isinstance(controls, str):
+        chlor_method = controls
+        controls = None
+
+    effective = controls or get_controls(chlor_method)
+    item_map = {
+        control["item"]: _CONTROL_STATE_KEYS[key]
+        for key, control in effective.items()
+    }
 
     soup = BeautifulSoup(html, "html.parser")
     for item_id, data_key in item_map.items():

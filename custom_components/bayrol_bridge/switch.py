@@ -15,7 +15,7 @@ from .const import (
     DATA_PH_DOSING,
     DEFAULT_CHLOR_METHOD,
     DOMAIN,
-    get_controls,
+    resolve_controls,
 )
 from .entity import BayrolBridgeEntity
 
@@ -44,10 +44,8 @@ async def async_setup_entry(
     coordinator = runtime["coordinator"]
     device_name = runtime["device_name"]
     cid = runtime["cid"]
-    chlor_method = _get_chlor_method(entry)
-
     entities: list[BayrolBridgeSwitch] = []
-    for control_key, control in get_controls(chlor_method).items():
+    for control_key, control in resolve_controls(entry.data, entry.options).items():
         entities.append(
             BayrolBridgeSwitch(
                 coordinator,
