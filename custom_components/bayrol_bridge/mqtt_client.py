@@ -6,7 +6,7 @@ import asyncio
 import json
 import logging
 import random
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 import paho.mqtt.client as mqtt
@@ -29,10 +29,37 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 _CONNECT_TIMEOUT = 15.0
+_INITIAL_BACKOFF = 5.0
+_MAX_BACKOFF = 300.0
+
+# MQTT 3.1.1 CONNACK: 4 = bad user/password, 5 = not authorized
+_AUTH_REASON_VALUES = frozenset({4, 5})
+
+
+def next_backoff(previous: float) -> float:
+    """Return next reauth wait (5 s first, then exponential up to 5 min)."""
+    if previous <= 0:
+        return _INITIAL_BACKOFF
+    return min(previous * 2, _MAX_BACKOFF)
 
 
 def _random_client_suffix() -> str:
     return f"{random.randint(0, 0xFFFFFF):06x}"
+
+
+def _reason_value(reason_code: mqtt.ReasonCode | int) -> int:
+    if isinstance(reason_code, int):
+        return reason_code
+    return int(getattr(reason_code, "value", reason_code))
+
+
+def _is_auth_failure(reason_code: mqtt.ReasonCode | int) -> bool:
+    """True when CONNACK indicates invalid credentials (token refresh needed)."""
+    value = _reason_value(reason_code)
+    if value in _AUTH_REASON_VALUES:
+        return True
+    text = str(reason_code).lower()
+    return "not authorized" in text or "bad user" in text or "bad password" in text
 
 
 def _item_from_topic(topic: str, serial: str) -> str | None:
@@ -63,6 +90,8 @@ class BayrolMqttClient:
         serial: str,
         on_value: Callable[[str, str], None],
         on_connection_change: Callable[[bool], None] | None = None,
+        request_items: list[str] | None = None,
+        token_provider: Callable[[], Awaitable[tuple[str, str]]] | None = None,
     ) -> None:
         """Initialize client; ``on_value`` receives (item, value) from v/-topics."""
         self._hass = hass
@@ -70,14 +99,26 @@ class BayrolMqttClient:
         self._serial = serial
         self._on_value = on_value
         self._on_connection_change = on_connection_change
+        self._request_items = list(request_items or [])
+        self._token_provider = token_provider
         self._client: Client | None = None
         self._connected = False
         self._ready = asyncio.Event()
+        self._stopped = False
+        self._reauth_in_progress = False
+        self._reauth_task: asyncio.Task[None] | None = None
+        self._reauth_backoff = 0.0
 
     @property
     def connected(self) -> bool:
         """Whether the last CONNACK succeeded."""
         return self._connected
+
+    def _request_initial_values(self, mqtt_client: Client) -> None:
+        """Publish g/<item> for every configured item (sync, on_connect thread)."""
+        for item in self._request_items:
+            topic = f"{TOPIC_PREFIX}/{self._serial}/g/{item}"
+            mqtt_client.publish(topic, payload=b"", qos=0)
 
     def _make_client(self) -> Client:
         client_id = f"user_{_random_client_suffix()}"
@@ -99,14 +140,23 @@ class BayrolMqttClient:
             reason_code: mqtt.ReasonCode,
             _properties: mqtt.Properties | None,
         ) -> None:
-            if reason_code != 0 and getattr(reason_code, "value", reason_code) != 0:
+            if _reason_value(reason_code) != 0:
                 self._connected = False
                 _LOGGER.warning("MQTT connect failed: %s", reason_code)
                 self._notify_connection_change(False)
+                if _is_auth_failure(reason_code):
+                    try:
+                        mqtt_client.loop_stop()
+                    except Exception:  # noqa: BLE001
+                        _LOGGER.debug("MQTT loop_stop after auth failure failed")
+                    if self._token_provider is not None:
+                        self._hass.loop.call_soon_threadsafe(self._schedule_reauth)
                 return
             self._connected = True
+            self._reauth_backoff = 0.0
             sub_topic = f"{TOPIC_PREFIX}/{self._serial}/v/#"
             mqtt_client.subscribe(sub_topic)
+            self._request_initial_values(mqtt_client)
             self._notify_connection_change(True)
             self._hass.loop.call_soon_threadsafe(self._ready.set)
 
@@ -143,6 +193,75 @@ class BayrolMqttClient:
         if self._on_connection_change is None:
             return
         self._hass.loop.call_soon_threadsafe(self._on_connection_change, connected)
+
+    def _schedule_reauth(self) -> None:
+        """Schedule a single token refresh + reconnect on the HA event loop."""
+        if self._stopped or self._token_provider is None:
+            return
+        if self._reauth_in_progress:
+            return
+        if self._reauth_task is not None and not self._reauth_task.done():
+            return
+
+        def _start() -> None:
+            if self._reauth_in_progress:
+                return
+            if self._reauth_task is not None and not self._reauth_task.done():
+                return
+            self._reauth_in_progress = True
+            self._reauth_task = self._hass.async_create_task(self._run_reauth())
+
+        loop = self._hass.loop
+        try:
+            if asyncio.get_running_loop() is loop:
+                _start()
+                return
+        except RuntimeError:
+            pass
+        loop.call_soon_threadsafe(_start)
+
+    async def _run_reauth(self) -> None:
+        """Fetch a fresh MQTT token and reconnect with exponential backoff."""
+        if self._token_provider is None:
+            return
+        try:
+            while not self._stopped:
+                wait = next_backoff(self._reauth_backoff)
+                self._reauth_backoff = wait
+                await asyncio.sleep(wait)
+                if self._stopped:
+                    return
+                try:
+                    token, serial = await self._token_provider()
+                except Exception:  # noqa: BLE001
+                    _LOGGER.warning(
+                        "MQTT token refresh failed; retry in %s s", wait, exc_info=True
+                    )
+                    self._notify_connection_change(False)
+                    continue
+
+                if serial != self._serial:
+                    _LOGGER.warning(
+                        "MQTT serial changed during token refresh (%s -> %s)",
+                        self._serial,
+                        serial,
+                    )
+                    self._serial = serial
+
+                self._access_token = token
+                await self.async_disconnect()
+                if self._stopped:
+                    return
+                try:
+                    await self.async_connect()
+                except BayrolConnectionError:
+                    _LOGGER.warning("MQTT reconnect after token refresh failed")
+                    self._notify_connection_change(False)
+                    continue
+                return
+        finally:
+            self._reauth_in_progress = False
+            self._reauth_task = None
 
     async def async_connect(self) -> None:
         """Connect via WebSocket and subscribe to v/#."""
@@ -196,3 +315,17 @@ class BayrolMqttClient:
         self._client = None
         self._connected = False
         self._ready.clear()
+
+    async def async_stop(self) -> None:
+        """Cancel reauth and disconnect (integration unload)."""
+        self._stopped = True
+        task = self._reauth_task
+        if task is not None and not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        self._reauth_task = None
+        self._reauth_in_progress = False
+        await self.async_disconnect()

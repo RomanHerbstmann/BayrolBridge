@@ -73,8 +73,6 @@ async def test_async_start_fetches_credentials_connects_and_requests(hass) -> No
 
     mock_mqtt = MagicMock()
     mock_mqtt.async_connect = AsyncMock()
-    mock_mqtt.async_request = AsyncMock()
-    mock_mqtt.async_disconnect = AsyncMock()
 
     with patch(
         "custom_components.bayrol_bridge.coordinator.BayrolMqttClient",
@@ -85,8 +83,10 @@ async def test_async_start_fetches_credentials_connects_and_requests(hass) -> No
     client.login.assert_awaited_once_with("user", "pass")
     client.async_fetch_mqtt_credentials.assert_awaited_once_with(_CODE)
     mock_cls.assert_called_once()
+    call_kwargs = mock_cls.call_args.kwargs
+    assert call_kwargs["request_items"] == _ITEMS
+    assert call_kwargs["token_provider"] == coordinator._provide_token
     mock_mqtt.async_connect.assert_awaited_once()
-    assert mock_mqtt.async_request.await_count == len(_ITEMS)
     assert coordinator.data["connectivity"] is True
 
 
@@ -140,12 +140,12 @@ async def test_async_stop_disconnects_and_marks_offline(hass) -> None:
     """async_stop disconnects MQTT and clears connectivity."""
     coordinator = _make_coordinator(hass)
     mock_mqtt = MagicMock()
-    mock_mqtt.async_disconnect = AsyncMock()
+    mock_mqtt.async_stop = AsyncMock()
     coordinator._mqtt = mock_mqtt
     coordinator.handle_connection_change(True)
 
     await coordinator.async_stop()
 
-    mock_mqtt.async_disconnect.assert_awaited_once()
+    mock_mqtt.async_stop.assert_awaited_once()
     assert coordinator.mqtt is None
     assert coordinator.data["connectivity"] is False

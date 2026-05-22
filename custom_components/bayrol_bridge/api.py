@@ -591,54 +591,6 @@ class BayrolApiClient:
             raise BayrolConnectionError(f"device page returned {status}")
         return html
 
-    async def set_control(self, cid: str, control_key: str, enabled: bool) -> None:
-        """Enable or disable a dosing control."""
-        controls = self._controls
-        if control_key not in controls:
-            raise ValueError(f"Unknown control: {control_key}")
-
-        control = controls[control_key]
-        value = control["value_on"] if enabled else control["value_off"]
-        payload = {
-            "device": cid,
-            "action": "setItems",
-            "data": {
-                "items": [
-                    {
-                        "topic": control["item"],
-                        "name": control["name"],
-                        "value": value,
-                        "valid": 1,
-                        "cmd": 1,
-                    }
-                ]
-            },
-        }
-
-        async with self._lock:
-            headers = JSON_HEADERS.copy()
-            headers["Referer"] = self._url(f"{PATH_DEVICE}?c={cid}")
-            status, body = await self._request_text_with_retry(
-                "POST",
-                control["set_path"],
-                headers=headers,
-                json=payload,
-            )
-            if status != 200:
-                raise BayrolConnectionError(f"setItems returned {status}")
-            # Success schema and item/value codes (5.154/5.40/5.42, 19.17/19.18)
-            # should be verified against a real device via data_json.php in DevTools.
-            try:
-                result = json.loads(body)
-            except (ValueError, TypeError) as err:
-                _LOGGER.debug("Unerwartete setItems-Antwort: %s", body[:200])
-                raise BayrolConnectionError("setItems: ungültige Antwort") from err
-            if result.get("error"):
-                raise BayrolConnectionError(
-                    f"setItems abgelehnt: {result.get('error')}"
-                )
-
-
 def _mask_sensitive(text: str, cid: str | None = None) -> str:
     """Mask emails, tokens, CID, and session-like values in diagnostic text."""
     if not text:

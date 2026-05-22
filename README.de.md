@@ -14,6 +14,7 @@ Inoffizielle Home-Assistant-Integration für [Bayrol Pool Access](https://www.ba
 - **Binärsensor:** Cloud-Verbindung (MQTT)
 - Config Flow mit Steuerungs-Erkennung
 - Sitzungsstabilität mit automatischem Re-Login
+- **Dauerbetrieb:** MQTT-Reconnect mit automatischer Token-Erneuerung bei Auth-Fehler; Initialwerte nach jedem erfolgreichen Connect erneut angefordert
 
 ## Installation
 
@@ -128,14 +129,23 @@ Messwert-Alarme sind vorübergehend entfernt, bis die Alarm-Quelle über MQTT ge
 ist (bisher `stat_alarm` aus `getdata.php`).
 
 Die Dosier-Schalter lesen den Zustand per MQTT (`v/`-Topics) und sind bei
-Verbindungsverlust nicht verfügbar (kein veralteter Wert).
+Verbindungsverlust nicht verfügbar (kein veralteter Wert). Nach einem Reconnect
+fordert die Integration alle konfigurierten Items per `g/`-Topics erneut an.
+
+## Änderungen
+
+### 0.2.0
+
+- MQTT-Robustheit: Token-Refresh bei Auth-Fehler (exponentielles Backoff, max. 5 Min.)
+- Initialwerte (`g/<item>`) nach jedem erfolgreichen MQTT-(Re-)Connect
+- Dosierung nur noch per MQTT (`s/`-Topics); ungenutztes HTTP-`set_control` entfernt
 
 ## API-Quellen
 
 Diese Integration nutzt die Bayrol-Webview-HTTP-API, dokumentiert bzw. reverse-engineered
 durch Community-Projekte:
 
-- [razem-io/ha-bayrol-cloud](https://github.com/razem-io/ha-bayrol-cloud) – Login, `getdata.php`, `data_json.php` / `setItems`
+- [razem-io/ha-bayrol-cloud](https://github.com/razem-io/ha-bayrol-cloud) – Login, `getdata.php`, Diagnose
 - [tdenolle/bayrol-poolaccess-mqtt](https://github.com/tdenolle/bayrol-poolaccess-mqtt) – MQTT-Item-IDs für Dosierungssteuerungen (`5.42`, `5.154`, `5.40`)
 
 ## Haftungsausschluss

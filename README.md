@@ -14,6 +14,7 @@ Unofficial Home Assistant integration for [Bayrol Pool Access](https://www.bayro
 - **Binary sensor:** cloud connectivity (MQTT)
 - Config flow with controller discovery
 - Session resilience with automatic re-login
+- **Dauerbetrieb:** MQTT reconnect with automatic token refresh on auth failure; initial sensor/switch values re-requested after every successful connect
 
 ## Installation
 
@@ -128,13 +129,22 @@ Measurement alarms are temporarily removed until the alarm source over MQTT is
 identified (previously `stat_alarm` from `getdata.php`).
 
 Dosing switches read state from MQTT (`v/` topics) and become unavailable when
-the connection is lost (no stale values).
+the connection is lost (no stale values). After a reconnect, the integration
+re-requests all configured items via `g/` topics so entities do not stay unknown.
+
+## Changelog
+
+### 0.2.0
+
+- MQTT robustness: token refresh on auth failure (exponential backoff, max 5 min)
+- Re-request initial values (`g/<item>`) on every successful MQTT (re)connect
+- Dosing control exclusively via MQTT (`s/` topics); unused HTTP `set_control` removed
 
 ## API sources
 
 This integration uses the Bayrol webview HTTP API documented/reverse-engineered by community projects:
 
-- [razem-io/ha-bayrol-cloud](https://github.com/razem-io/ha-bayrol-cloud) – login, `getdata.php`, `data_json.php` / `setItems`
+- [razem-io/ha-bayrol-cloud](https://github.com/razem-io/ha-bayrol-cloud) – login, `getdata.php`, diagnostics
 - [tdenolle/bayrol-poolaccess-mqtt](https://github.com/tdenolle/bayrol-poolaccess-mqtt) – MQTT item IDs for dosing controls (`5.42`, `5.154`, `5.40`)
 
 ## Disclaimer

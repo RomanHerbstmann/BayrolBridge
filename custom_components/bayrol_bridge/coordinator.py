@@ -68,6 +68,11 @@ class BayrolBridgeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._state[DATA_CONNECTIVITY] = connected
         self.async_set_updated_data(self._snapshot())
 
+    async def _provide_token(self) -> tuple[str, str]:
+        """Refresh HTTP session and fetch new MQTT credentials."""
+        await self.client.login(self._username, self._password)
+        return await self.client.async_fetch_mqtt_credentials(self._access_code)
+
     async def async_start(self) -> None:
         """Log in, fetch MQTT credentials, connect, and request initial values."""
         if not self._access_code:
@@ -96,6 +101,8 @@ class BayrolBridgeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             serial,
             on_value=self.handle_value,
             on_connection_change=self.handle_connection_change,
+            request_items=self._items,
+            token_provider=self._provide_token,
         )
         try:
             await self._mqtt.async_connect()
@@ -104,12 +111,9 @@ class BayrolBridgeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         self.handle_connection_change(True)
 
-        for item in self._items:
-            await self._mqtt.async_request(item)
-
     async def async_stop(self) -> None:
         """Disconnect MQTT and mark the integration offline."""
         if self._mqtt is not None:
-            await self._mqtt.async_disconnect()
+            await self._mqtt.async_stop()
             self._mqtt = None
         self.handle_connection_change(False)
