@@ -16,11 +16,11 @@ from .const import (
     CONF_CID,
     CONF_DEVICE_NAME,
     DOMAIN,
+    get_chlor_method,
     resolve_controls,
     resolve_mqtt_items,
 )
 from .coordinator import BayrolBridgeCoordinator
-from .switch import _get_chlor_method
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ PLATFORMS: list[Platform] = [
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Bayrol Bridge from a config entry."""
     session = async_get_clientsession(hass)
-    chlor_method = _get_chlor_method(entry)
+    chlor_method = get_chlor_method(entry)
     controls = resolve_controls(entry.data, entry.options)
     merged = {**entry.data, **entry.options}
     access_code = merged.get(CONF_ACCESS_CODE)

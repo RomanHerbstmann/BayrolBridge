@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Final, TypedDict
+from typing import TYPE_CHECKING, Final, TypedDict
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
 
 DOMAIN: Final = "bayrol_bridge"
 
@@ -114,6 +117,16 @@ def get_controls(
             "name": "mv_on_off",
         }
     return controls
+
+
+def get_chlor_method(entry: ConfigEntry) -> str:
+    """Return effective chlorine method from entry data/options."""
+    return str(
+        entry.options.get(
+            CONF_CHLOR_METHOD,
+            entry.data.get(CONF_CHLOR_METHOD, DEFAULT_CHLOR_METHOD),
+        )
+    )
 
 
 def resolve_controls(

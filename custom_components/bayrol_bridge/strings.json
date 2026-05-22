@@ -52,7 +52,7 @@
           "redox_meas_item": "Redox measurement item",
           "dosing_on": "Value for ON",
           "dosing_off": "Value for OFF",
-          "debug_html": "Enable HTML diagnostics (troubleshooting only)",
+          "debug_html": "Debug diagnostics (raw data, troubleshooting only)",
           "access_code": "Device / app-link code (required for control)"
         },
         "data_description": {

@@ -15,7 +15,6 @@ from bs4 import BeautifulSoup, Tag
 from .const import (
     API_CODE_PATH,
     BASE_URL,
-    CHLOR_METHODS,
     ControlConfig,
     DATA_CHLORINE_DOSING,
     DATA_CONNECTIVITY,
@@ -28,7 +27,6 @@ from .const import (
     PATH_DEVICE,
     PATH_GETDATA,
     PATH_INDEX,
-    PATH_LOGIN_MOBILE,
     PATH_LOGIN_PORTAL,
     PATH_LOGIN_POST,
     PATH_PLANTS,

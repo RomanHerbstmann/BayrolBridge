@@ -9,12 +9,28 @@ Unofficial Home Assistant integration for [Bayrol Pool Access](https://www.bayro
 
 ## Features
 
-- **Sensors:** pH, redox (mV), temperature (°C)
-- **Switches:** chlorine dosing (Redox/ACL), pH dosing
+- **Sensors:** pH, redox (mV), temperature (°C) — live values via MQTT
+- **Switches:** chlorine dosing (Redox/ACL or salt), pH dosing — control and real state readback via MQTT
 - **Binary sensor:** cloud connectivity (MQTT)
 - Config flow with controller discovery
-- Session resilience with automatic re-login
-- **Dauerbetrieb:** MQTT reconnect with automatic token refresh on auth failure; initial sensor/switch values re-requested after every successful connect
+- Session resilience with automatic re-login (HTTP portal session)
+- **Continuous operation:** MQTT reconnect with automatic token refresh on auth failure; initial sensor/switch values re-requested after every successful connect
+
+## Architecture
+
+| Path | Role |
+|------|------|
+| **MQTT-over-WebSocket** (`wss://www.bayrol-poolaccess.de:8083`) | Live measurements, dosing on/off (`s/` topics), state readback (`v/` topics), initial value requests (`g/` topics) |
+| **HTTP** (`/api/?code=`) | Exchange **App Link** code for MQTT access token and device serial |
+| **HTTP** (Bayrol webview login) | Portal session (`PHPSESSID`) for controller discovery and optional diagnostics |
+
+There is **no local LAN API** — the integration talks to Bayrol Pool Access in the cloud only.
+
+### App Link code (required)
+
+MQTT credentials are obtained with the device **App Link** code from the Bayrol portal
+(**App Link** / app-link URL). Enter it under integration options as **Device / app-link code**.
+Without a valid code, control and live MQTT data are not available.
 
 ## Installation
 
@@ -45,6 +61,8 @@ The method is pre-selected via best-effort auto-detection; you can override it.
 
 Optional: set the polling interval (minimum 30 seconds, default 60).
 
+After setup, open **Configure** and set the **App Link code** (required for MQTT).
+
 ### Options (configurable item codes)
 
 The dosing item codes and on/off values differ between Bayrol device generations.
@@ -54,6 +72,7 @@ Because they cannot be detected reliably, they are editable without touching cod
 
 | Option | Default | Notes |
 |--------|---------|-------|
+| Device / app-link code | _(required)_ | From Bayrol portal → **App Link**; unlocks MQTT token |
 | Chlorine / disinfection method | `redox` | Convenient preset for the chlorine item |
 | Chlorine item override | _(empty)_ | Set only if the method does not yield the right item; overrides the method when filled |
 | pH item | `5.42` | pH dosing item |
@@ -61,6 +80,7 @@ Because they cannot be detected reliably, they are editable without touching cod
 | Redox measurement item | `4.82` | MQTT item for redox (mV) |
 | Value for ON | `19.17` | MQTT value when dosing is turned on |
 | Value for OFF | `19.18` | MQTT value when dosing is turned off |
+| Debug diagnostics | off | Raw/HTML/probe data in diagnostics export only when enabled |
 
 #### Known default item codes
 
@@ -80,6 +100,9 @@ your specific device actually exposes.
 | Salt electrolysis item | `5.40` | Salt systems (ASE / SALT) |
 | Value for ON | `19.17` | Sent as the on value |
 | Value for OFF | `19.18` | Sent as the off value |
+
+**Device-specific:** codes above are verified for **Automatic Cl-pH**; other models
+(PoolManager, PoolRelax, SALT/ASE) may differ — adjust via options or diagnostics.
 
 Leaving a field empty restores its default. Saving reloads the integration
 automatically, so the switches use the new values immediately.
@@ -109,8 +132,8 @@ Where the device page exposes item divs, the `device_items` section in diagnosti
 lists each `item` code with active/inactive state. Pick the relevant code for the
 options (chlorine item / pH item), then verify by toggling once in the portal.
 
-If `device_items` stays empty, enable **HTML diagnostics (troubleshooting only)**,
-download diagnostics again, then disable the switch after analysis. The debug export
+If `device_items` stays empty, enable **Debug diagnostics (raw data, troubleshooting only)**,
+download diagnostics again, then disable the option after analysis. The debug export
 also includes `raw_getdata` and `data_json_probes` to help derive item codes when
 `device_html_debug` is empty.
 
@@ -118,27 +141,31 @@ also includes `raw_getdata` and `data_json_probes` to help derive item codes whe
 
 | Entity | Description |
 |--------|-------------|
-| `sensor.*_ph` | pH value |
-| `sensor.*_redox` | Redox potential (mV) |
-| `sensor.*_temperature` | Water temperature (°C) |
-| `switch.*_chlorine_dosing` | Chlorine / Redox dosing on/off (assumed state) |
-| `switch.*_ph_dosing` | pH dosing on/off (assumed state) |
+| `sensor.*_ph` | pH value (MQTT) |
+| `sensor.*_redox` | Redox potential in mV (MQTT) |
+| `sensor.*_temperature` | Water temperature in °C (MQTT) |
+| `switch.*_chlorine_dosing` | Chlorine / Redox dosing on/off (MQTT set + readback) |
+| `switch.*_ph_dosing` | pH dosing on/off (MQTT set + readback) |
 | `binary_sensor.*_connectivity` | MQTT connection |
 
-Measurement alarms are temporarily removed until the alarm source over MQTT is
-identified (previously `stat_alarm` from `getdata.php`).
+Alarm sensors are **not** provided yet (known limitation until the alarm source over MQTT is identified).
 
 Dosing switches read state from MQTT (`v/` topics) and become unavailable when
 the connection is lost (no stale values). After a reconnect, the integration
 re-requests all configured items via `g/` topics so entities do not stay unknown.
 
+## Safety
+
+This integration controls **real chemical dosing** through the Bayrol cloud.
+The pool controller runs its own regulation; Home Assistant only sends on/off commands.
+
+- Use automations with hysteresis, maximum run times, and watchdogs where appropriate.
+- Test changes manually before unattended automations.
+- Keep portal credentials and the App Link code private.
+
 ## Changelog
 
-### 0.2.0
-
-- MQTT robustness: token refresh on auth failure (exponential backoff, max 5 min)
-- Re-request initial values (`g/<item>`) on every successful MQTT (re)connect
-- Dosing control exclusively via MQTT (`s/` topics); unused HTTP `set_control` removed
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## API sources
 
@@ -149,7 +176,8 @@ This integration uses the Bayrol webview HTTP API documented/reverse-engineered 
 
 ## Disclaimer
 
-This is an **unofficial** community project. It is not affiliated with or endorsed by Bayrol. Use at your own risk.
+This is an **unofficial** community project. It is not affiliated with or endorsed by Bayrol.
+It relies on **cloud-only** access (no local API). Use at your own risk.
 
 ## Development
 

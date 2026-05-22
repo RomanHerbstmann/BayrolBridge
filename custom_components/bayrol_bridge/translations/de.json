@@ -52,7 +52,7 @@
           "redox_meas_item": "Redox-Messwert-Item",
           "dosing_on": "Wert für EIN",
           "dosing_off": "Wert für AUS",
-          "debug_html": "HTML-Diagnose aktivieren (nur zur Fehlersuche)",
+          "debug_html": "Debug-Diagnose (Rohdaten, nur zur Fehlersuche)",
           "access_code": "Geräte-/App-Link-Code (für Steuerung)"
         },
         "data_description": {

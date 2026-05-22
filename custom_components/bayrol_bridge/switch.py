@@ -10,23 +10,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import (
-    CONF_CHLOR_METHOD,
-    DATA_CONNECTIVITY,
-    DEFAULT_CHLOR_METHOD,
-    DOMAIN,
-    resolve_controls,
-)
+from .const import DATA_CONNECTIVITY, DOMAIN, resolve_controls
 from .entity import BayrolBridgeEntity
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def _get_chlor_method(entry: ConfigEntry) -> str:
-    return entry.options.get(
-        CONF_CHLOR_METHOD,
-        entry.data.get(CONF_CHLOR_METHOD, DEFAULT_CHLOR_METHOD),
-    )
 
 
 async def async_setup_entry(
