@@ -11,6 +11,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import BayrolApiClient
 from .const import (
+    CONF_ACCESS_CODE,
     CONF_CID,
     CONF_DEVICE_NAME,
     CONF_SCAN_INTERVAL,
@@ -35,7 +36,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     session = async_get_clientsession(hass)
     chlor_method = _get_chlor_method(entry)
     controls = resolve_controls(entry.data, entry.options)
-    client = BayrolApiClient(session, chlor_method=chlor_method, controls=controls)
+    merged = {**entry.data, **entry.options}
+    access_code = merged.get(CONF_ACCESS_CODE)
+    if isinstance(access_code, str):
+        access_code = access_code.strip() or None
+    else:
+        access_code = None
+    client = BayrolApiClient(
+        session,
+        chlor_method=chlor_method,
+        controls=controls,
+        access_code=access_code,
+    )
     client._username = entry.data[CONF_USERNAME]
     client._password = entry.data[CONF_PASSWORD]
 

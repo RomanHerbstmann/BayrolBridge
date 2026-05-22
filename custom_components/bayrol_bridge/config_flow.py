@@ -18,6 +18,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import BayrolApiClient, BayrolAuthError, BayrolConnectionError
 from .const import (
     CHLOR_METHODS,
+    CONF_ACCESS_CODE,
     CONF_CHLOR_ITEM,
     CONF_CHLOR_METHOD,
     CONF_CID,
@@ -295,6 +296,9 @@ class BayrolBridgeOptionsFlowHandler(OptionsFlowWithReload):
                     CONF_DEBUG_HTML,
                     default=cur_bool(CONF_DEBUG_HTML, DEFAULT_DEBUG_HTML),
                 ): bool,
+                vol.Optional(
+                    CONF_ACCESS_CODE, default=cur(CONF_ACCESS_CODE, "")
+                ): str,
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

@@ -50,13 +50,15 @@
           "ph_item": "pH-Item",
           "dosing_on": "Wert für EIN",
           "dosing_off": "Wert für AUS",
-          "debug_html": "HTML-Diagnose aktivieren (nur zur Fehlersuche)"
+          "debug_html": "HTML-Diagnose aktivieren (nur zur Fehlersuche)",
+          "access_code": "Geräte-/App-Link-Code (für Steuerung)"
         },
         "data_description": {
           "chlor_item": "Nur ausfüllen, wenn die Methode nicht das richtige Item liefert (z. B. 5.154 oder 5.40).",
           "ph_item": "Bayrol-Topic für pH-Dosierung (Standard 5.42).",
           "dosing_on": "MQTT-Wert beim Einschalten der Dosierung (Standard 19.17).",
-          "dosing_off": "MQTT-Wert beim Ausschalten der Dosierung (Standard 19.18)."
+          "dosing_off": "MQTT-Wert beim Ausschalten der Dosierung (Standard 19.18).",
+          "access_code": "Wird zum Entsperren der Steuerbefehle benötigt; im Bayrol-Portal unter App Link zu finden."
         }
       }
     }

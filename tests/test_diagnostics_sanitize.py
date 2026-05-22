@@ -2,7 +2,17 @@
 
 from __future__ import annotations
 
-from custom_components.bayrol_bridge.diagnostics import _sanitize_obj, _sanitize_text
+from custom_components.bayrol_bridge.const import CONF_ACCESS_CODE
+from custom_components.bayrol_bridge.diagnostics import (
+    TO_REDACT,
+    _sanitize_obj,
+    _sanitize_text,
+)
+
+
+def test_to_redact_includes_access_code() -> None:
+    """Access code is redacted from diagnostic options export."""
+    assert CONF_ACCESS_CODE in TO_REDACT
 
 
 def test_sanitize_text_masks_sensitive_values() -> None:

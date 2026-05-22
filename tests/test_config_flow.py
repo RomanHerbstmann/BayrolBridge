@@ -15,6 +15,7 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 
 from custom_components.bayrol_bridge.const import (
     BASE_URL,
+    CONF_ACCESS_CODE,
     CONF_CHLOR_ITEM,
     CONF_CHLOR_METHOD,
     CONF_CID,
@@ -280,6 +281,43 @@ async def test_options_flow_saves_overrides_and_strips_empty(hass) -> None:
         assert entry.options[CONF_DOSING_ON] == "1.1"
         assert "dosing_off" not in entry.options
         mock_reload.assert_awaited_once_with(entry.entry_id)
+
+
+async def test_options_flow_saves_access_code_and_strips_empty(hass) -> None:
+    """Options flow persists access code; empty value is not stored."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_USERNAME: "user@example.com",
+            CONF_PASSWORD: "secret",
+            CONF_CID: "42",
+            CONF_CHLOR_METHOD: "redox",
+        },
+        options={},
+    )
+    entry.add_to_hass(hass)
+
+    with patch.object(
+        hass.config_entries, "async_reload", new_callable=AsyncMock
+    ):
+        options_flow = await hass.config_entries.options.async_init(entry.entry_id)
+        result = await hass.config_entries.options.async_configure(
+            options_flow["flow_id"],
+            {
+                CONF_CHLOR_METHOD: "redox",
+                CONF_ACCESS_CODE: "  link-code-99  ",
+            },
+        )
+        assert result["type"] == "create_entry"
+        assert entry.options[CONF_ACCESS_CODE] == "link-code-99"
+
+        options_flow = await hass.config_entries.options.async_init(entry.entry_id)
+        result = await hass.config_entries.options.async_configure(
+            options_flow["flow_id"],
+            {CONF_CHLOR_METHOD: "redox", CONF_ACCESS_CODE: "   "},
+        )
+        assert result["type"] == "create_entry"
+        assert CONF_ACCESS_CODE not in entry.options
 
 
 async def test_options_flow_changes_method_and_reloads(hass) -> None:

@@ -10,6 +10,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 
 from custom_components.bayrol_bridge.const import (
+    CONF_ACCESS_CODE,
     CONF_CID,
     CONF_CHLOR_METHOD,
     CONF_DEBUG_HTML,
@@ -62,6 +63,7 @@ async def test_diagnostics_redacts_credentials_and_includes_device_items(
     assert result["raw_getdata"] is None
     assert result["data_json_probes"] is None
     assert result["get_items_probe"] is None
+    assert result["access_probe"] is None
     assert "effective_controls" in result
     assert result["coordinator_data"] == coordinator.data
     client.async_list_device_items.assert_awaited_once_with("42")
@@ -69,6 +71,40 @@ async def test_diagnostics_redacts_credentials_and_includes_device_items(
     client.async_get_raw_getdata.assert_not_called()
     client.async_probe_data_json.assert_not_called()
     client.async_probe_get_items.assert_not_called()
+    client.async_probe_access.assert_not_called()
+
+
+async def test_diagnostics_access_probe_none_without_code_or_debug(hass) -> None:
+    """access_probe stays None without debug or without access code."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_USERNAME: "user@example.com",
+            CONF_PASSWORD: "secret",
+            CONF_CID: "42",
+            CONF_CHLOR_METHOD: "redox",
+        },
+        options={CONF_ACCESS_CODE: "link-code"},
+    )
+    entry.add_to_hass(hass)
+
+    client = MagicMock()
+    client.async_list_device_items = AsyncMock(return_value=[])
+    coordinator = MagicMock()
+    coordinator.data = {}
+
+    hass.data[DOMAIN] = {
+        entry.entry_id: {
+            "client": client,
+            "coordinator": coordinator,
+            "cid": "42",
+        }
+    }
+
+    result = await async_get_config_entry_diagnostics(hass, entry)
+    assert result["access_probe"] is None
+    assert result["options"]["access_code"] == "**REDACTED**"
+    client.async_probe_access.assert_not_called()
 
 
 async def test_diagnostics_includes_html_debug_when_enabled(hass) -> None:
@@ -81,7 +117,7 @@ async def test_diagnostics_includes_html_debug_when_enabled(hass) -> None:
             CONF_CID: "42",
             CONF_CHLOR_METHOD: "redox",
         },
-        options={CONF_DEBUG_HTML: True},
+        options={CONF_DEBUG_HTML: True, CONF_ACCESS_CODE: "device-link-42"},
     )
     entry.add_to_hass(hass)
 
@@ -102,6 +138,11 @@ async def test_diagnostics_includes_html_debug_when_enabled(hass) -> None:
             "body_excerpt": '{"error":""}',
         }
     )
+    client.async_probe_access = AsyncMock(
+        return_value=[
+            {"action": "getAccess", "had_code": False, "status": 403, "body_excerpt": ""},
+        ]
+    )
     coordinator = MagicMock()
     coordinator.data = {"pH": 7.2, "status": "online"}
 
@@ -119,12 +160,52 @@ async def test_diagnostics_includes_html_debug_when_enabled(hass) -> None:
     assert result["raw_getdata"] == "<getdata/>"
     assert len(result["data_json_probes"]) == 1
     assert result["get_items_probe"]["status"] == 200
+    assert result["access_probe"][0]["action"] == "getAccess"
     assert result["options"]["password"] == "**REDACTED**"
     assert result["options"]["username"] == "**REDACTED**"
-    dumped = str(result["device_html_debug"])
+    assert result["options"]["access_code"] == "**REDACTED**"
+    dumped = str(result)
     assert "secret" not in dumped
-    assert "password" not in dumped
+    assert "device-link-42" not in dumped
     client.async_get_device_html_debug.assert_awaited_once_with("42")
     client.async_get_raw_getdata.assert_awaited_once_with("42")
     client.async_probe_data_json.assert_awaited_once_with("42")
     client.async_probe_get_items.assert_awaited_once_with("42")
+    client.async_probe_access.assert_awaited_once_with("42", "device-link-42")
+
+
+async def test_diagnostics_access_probe_none_when_debug_without_code(hass) -> None:
+    """Debug on but no access code: access_probe stays None."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_USERNAME: "user@example.com",
+            CONF_PASSWORD: "secret",
+            CONF_CID: "42",
+            CONF_CHLOR_METHOD: "redox",
+        },
+        options={CONF_DEBUG_HTML: True},
+    )
+    entry.add_to_hass(hass)
+
+    client = MagicMock()
+    client.async_list_device_items = AsyncMock(return_value=[])
+    client.async_get_device_html_debug = AsyncMock(return_value=[])
+    client.async_get_raw_getdata = AsyncMock(return_value="")
+    client.async_probe_data_json = AsyncMock(return_value=[])
+    client.async_probe_get_items = AsyncMock(return_value={})
+    client.async_probe_access = AsyncMock()
+    coordinator = MagicMock()
+    coordinator.data = {}
+
+    hass.data[DOMAIN] = {
+        entry.entry_id: {
+            "client": client,
+            "coordinator": coordinator,
+            "cid": "42",
+        }
+    }
+
+    result = await async_get_config_entry_diagnostics(hass, entry)
+    assert result["access_probe"] is None
+    client.async_probe_access.assert_not_called()

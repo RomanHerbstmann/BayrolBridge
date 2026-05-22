@@ -113,6 +113,7 @@ class BayrolApiClient:
         chlor_method: str = DEFAULT_CHLOR_METHOD,
         *,
         controls: dict[str, ControlConfig] | None = None,
+        access_code: str | None = None,
     ) -> None:
         """Initialize client."""
         self._session = session
@@ -121,6 +122,7 @@ class BayrolApiClient:
         self._phpsessid: str | None = None
         self._username: str | None = None
         self._password: str | None = None
+        self._access_code = access_code
         self._logged_in = False
         self._chlor_method = chlor_method
         self._controls = controls or get_controls(chlor_method)
@@ -447,6 +449,39 @@ class BayrolApiClient:
             "status": status,
             "body_excerpt": body[:4000],
         }
+
+    async def async_probe_access(self, cid: str, code: str) -> list[dict[str, Any]]:
+        """Try read-only unlock/access variants for the access code. Never switches."""
+        headers = JSON_HEADERS.copy()
+        headers["Referer"] = self._url(f"{PATH_DEVICE}?c={cid}")
+
+        candidates: list[dict[str, Any]] = [
+            {"device": cid, "action": "getAccess"},
+            {"device": cid, "action": "getAccess", "data": {"code": code}},
+            {"device": cid, "action": "setCode", "data": {"code": code}},
+            {"device": cid, "action": "setAccess", "data": {"code": code}},
+            {"device": cid, "action": "access", "data": {"code": code}},
+            {"device": cid, "action": "login", "data": {"code": code}},
+        ]
+
+        attempts: list[dict[str, Any]] = []
+        for payload in candidates:
+            try:
+                status, body = await self._request_text_with_retry(
+                    "POST", PATH_DATA_JSON, headers=headers, json=payload
+                )
+            except BayrolConnectionError as err:
+                attempts.append({"action": payload["action"], "error": str(err)})
+                continue
+            attempts.append(
+                {
+                    "action": payload["action"],
+                    "had_code": "code" in payload.get("data", {}),
+                    "status": status,
+                    "body_excerpt": body[:1500],
+                }
+            )
+        return attempts
 
     async def async_list_device_items(self, cid: str) -> list[dict[str, Any]]:
         """Return all item codes present on the device page.

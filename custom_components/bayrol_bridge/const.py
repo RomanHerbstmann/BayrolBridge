@@ -28,6 +28,7 @@ CONF_CHLOR_ITEM: Final = "chlor_item"
 CONF_DOSING_ON: Final = "dosing_on"
 CONF_DOSING_OFF: Final = "dosing_off"
 CONF_DEBUG_HTML: Final = "debug_html"
+CONF_ACCESS_CODE: Final = "access_code"  # App-Link- / Geräte-Zugangscode
 DEFAULT_DEBUG_HTML: Final = False
 
 DEFAULT_SCAN_INTERVAL: Final = 60

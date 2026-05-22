@@ -9,9 +9,9 @@ from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_DEBUG_HTML, DOMAIN, resolve_controls
+from .const import CONF_ACCESS_CODE, CONF_DEBUG_HTML, DOMAIN, resolve_controls
 
-TO_REDACT = {"username", "password"}
+TO_REDACT = {"username", "password", CONF_ACCESS_CODE}
 
 _EMAIL_RE = re.compile(
     r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
@@ -74,6 +74,7 @@ async def async_get_config_entry_diagnostics(
     raw_getdata = None
     data_json_probes = None
     get_items_probe = None
+    access_probe = None
     if debug:
         debug_html = await client.async_get_device_html_debug(cid)
         raw_getdata = _sanitize_text(
@@ -82,6 +83,11 @@ async def async_get_config_entry_diagnostics(
         probes = await client.async_probe_data_json(cid)
         data_json_probes = [_sanitize_obj(probe, cid=cid) for probe in probes]
         get_items_probe = _sanitize_obj(await client.async_probe_get_items(cid))
+        code = merged.get(CONF_ACCESS_CODE)
+        if code:
+            access_probe = _sanitize_obj(
+                await client.async_probe_access(cid, code)
+            )
 
     return {
         "options": async_redact_data(
@@ -94,5 +100,6 @@ async def async_get_config_entry_diagnostics(
         "raw_getdata": raw_getdata,
         "data_json_probes": data_json_probes,
         "get_items_probe": get_items_probe,
+        "access_probe": access_probe,
         "coordinator_data": coordinator.data,
     }
