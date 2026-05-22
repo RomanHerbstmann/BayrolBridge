@@ -8,12 +8,17 @@ from custom_components.bayrol_bridge.const import (
     CONF_DOSING_OFF,
     CONF_DOSING_ON,
     CONF_PH_ITEM,
+    CONF_PH_MEAS_ITEM,
+    CONF_REDOX_MEAS_ITEM,
+    DEFAULT_PH_MEAS_ITEM,
+    DEFAULT_REDOX_MEAS_ITEM,
     DOSING_OFF,
     DOSING_ON,
-    MEASUREMENT_MQTT_ITEMS,
     PH_ITEM,
+    TEMP_MEAS_ITEM,
     get_controls,
     resolve_controls,
+    resolve_meas_items,
     resolve_mqtt_items,
 )
 
@@ -69,9 +74,30 @@ def test_resolve_controls_options_take_precedence() -> None:
     assert controls["ph"]["value_off"] == DOSING_OFF
 
 
+def test_resolve_meas_items_defaults() -> None:
+    """Measurement items use discover-verified defaults."""
+    temp, ph, redox = resolve_meas_items({}, {})
+    assert temp == TEMP_MEAS_ITEM
+    assert ph == DEFAULT_PH_MEAS_ITEM
+    assert redox == DEFAULT_REDOX_MEAS_ITEM
+
+
+def test_resolve_meas_items_options_override() -> None:
+    """Options override default measurement items."""
+    temp, ph, redox = resolve_meas_items(
+        {},
+        {CONF_PH_MEAS_ITEM: "9.1", CONF_REDOX_MEAS_ITEM: "9.2"},
+    )
+    assert temp == TEMP_MEAS_ITEM
+    assert ph == "9.1"
+    assert redox == "9.2"
+
+
 def test_resolve_mqtt_items_includes_controls_and_measurements() -> None:
     """MQTT items list contains dosing controls and measurement topics."""
     items = resolve_mqtt_items({CONF_CHLOR_METHOD: "redox"}, {})
-    assert set(MEASUREMENT_MQTT_ITEMS).issubset(items)
+    assert TEMP_MEAS_ITEM in items
+    assert DEFAULT_PH_MEAS_ITEM in items
+    assert DEFAULT_REDOX_MEAS_ITEM in items
     assert "5.42" in items
     assert "5.154" in items

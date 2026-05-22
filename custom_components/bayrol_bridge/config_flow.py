@@ -27,9 +27,13 @@ from .const import (
     CONF_DOSING_OFF,
     CONF_DOSING_ON,
     CONF_PH_ITEM,
+    CONF_PH_MEAS_ITEM,
+    CONF_REDOX_MEAS_ITEM,
     CONF_SCAN_INTERVAL,
     DEFAULT_CHLOR_METHOD,
     DEFAULT_DEBUG_HTML,
+    DEFAULT_PH_MEAS_ITEM,
+    DEFAULT_REDOX_MEAS_ITEM,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     DOSING_OFF,
@@ -286,6 +290,14 @@ class BayrolBridgeOptionsFlowHandler(OptionsFlowWithReload):
                 ),
                 vol.Optional(CONF_CHLOR_ITEM, default=cur(CONF_CHLOR_ITEM, "")): str,
                 vol.Optional(CONF_PH_ITEM, default=cur(CONF_PH_ITEM, PH_ITEM)): str,
+                vol.Optional(
+                    CONF_PH_MEAS_ITEM,
+                    default=cur(CONF_PH_MEAS_ITEM, DEFAULT_PH_MEAS_ITEM),
+                ): str,
+                vol.Optional(
+                    CONF_REDOX_MEAS_ITEM,
+                    default=cur(CONF_REDOX_MEAS_ITEM, DEFAULT_REDOX_MEAS_ITEM),
+                ): str,
                 vol.Optional(
                     CONF_DOSING_ON, default=cur(CONF_DOSING_ON, DOSING_ON)
                 ): str,

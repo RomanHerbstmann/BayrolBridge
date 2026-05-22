@@ -7,7 +7,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from custom_components.bayrol_bridge.binary_sensor import (
-    BayrolBridgeAlarmBinary,
     BayrolBridgeConnectivityBinary,
     async_setup_entry,
 )
@@ -15,8 +14,8 @@ from custom_components.bayrol_bridge.const import DOMAIN
 
 
 @pytest.mark.asyncio
-async def test_setup_entry_no_dosing_active_entities(hass) -> None:
-    """Dosing-active binary sensors are no longer created."""
+async def test_setup_entry_only_connectivity(hass) -> None:
+    """Only connectivity binary sensor is created (alarms removed)."""
     entry = MagicMock()
     entry.entry_id = "entry1"
     entry.options = {}
@@ -34,37 +33,21 @@ async def test_setup_entry_no_dosing_active_entities(hass) -> None:
 
     await async_setup_entry(hass, entry, _add)
 
-    translation_keys = {e._attr_translation_key for e in entities}
-    assert "chlorine_dosing_active" not in translation_keys
-    assert "ph_dosing_active" not in translation_keys
-    assert "connectivity" in translation_keys
-    assert "ph_alarm" in translation_keys
+    assert len(entities) == 1
+    assert isinstance(entities[0], BayrolBridgeConnectivityBinary)
+    assert entities[0]._attr_translation_key == "connectivity"
 
 
-def test_alarm_binary_reflects_stat_alarm_only() -> None:
-    """Alarm sensor reads coordinator data; stat_warning must not trigger alarm."""
-    coordinator = MagicMock()
-    coordinator.data = {"pH": 7.1, "pH_alarm": False}
-
-    alarm = BayrolBridgeAlarmBinary(
-        coordinator, "entry1", "Pool", "42", "pH", "ph_alarm"
-    )
-    assert alarm.is_on is False
-
-    coordinator.data["pH_alarm"] = True
-    assert alarm.is_on is True
-
-
-def test_dosing_binary_class_removed() -> None:
-    """BayrolBridgeDosingBinary must not exist after cleanup."""
+def test_alarm_binary_class_removed() -> None:
+    """BayrolBridgeAlarmBinary must not exist after MQTT migration."""
     import custom_components.bayrol_bridge.binary_sensor as mod
 
-    assert not hasattr(mod, "BayrolBridgeDosingBinary")
+    assert not hasattr(mod, "BayrolBridgeAlarmBinary")
 
 
 @pytest.mark.asyncio
 async def test_connectivity_binary_unchanged(hass) -> None:
-    """Connectivity binary sensor is still set up."""
+    """Connectivity binary sensor reflects coordinator connectivity."""
     entry = MagicMock()
     entry.entry_id = "entry1"
     entry.options = {}
@@ -84,7 +67,5 @@ async def test_connectivity_binary_unchanged(hass) -> None:
 
     await async_setup_entry(hass, entry, _add)
 
-    conn = next(
-        e for e in entities if isinstance(e, BayrolBridgeConnectivityBinary)
-    )
+    conn = entities[0]
     assert conn.is_on is True

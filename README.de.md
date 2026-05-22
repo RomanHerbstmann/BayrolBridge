@@ -11,7 +11,7 @@ Inoffizielle Home-Assistant-Integration für [Bayrol Pool Access](https://www.ba
 
 - **Sensoren:** pH, Redox (mV), Temperatur (°C)
 - **Schalter:** Chlordosierung (Redox/ACL), pH-Dosierung
-- **Binärsensoren:** Dosierung aktiv je Steuerung, Messwert-Alarme, Cloud-Verbindung
+- **Binärsensor:** Cloud-Verbindung (MQTT)
 - Config Flow mit Steuerungs-Erkennung
 - Sitzungsstabilität mit automatischem Re-Login
 
@@ -56,8 +56,10 @@ ohne Codeänderung editierbar:
 | Chlor-/Desinfektionsmethode | `redox` | Bequeme Voreinstellung für das Chlor-Item |
 | Chlor-Item-Override | _(leer)_ | Nur setzen, wenn die Methode nicht passt; überschreibt die Methode, wenn ausgefüllt |
 | pH-Item | `5.42` | pH-Dosierungs-Item |
-| Wert für EIN | `19.17` | Ein-Wert, der an `data_json.php` gesendet wird |
-| Wert für AUS | `19.18` | Aus-Wert, der an `data_json.php` gesendet wird |
+| pH-Messwert-Item | `4.2` | MQTT-Item für pH-Messwert (Rohwert ÷ 10) |
+| Redox-Messwert-Item | `4.82` | MQTT-Item für Redox (mV) |
+| Wert für EIN | `19.17` | MQTT-Wert beim Einschalten der Dosierung |
+| Wert für AUS | `19.18` | MQTT-Wert beim Ausschalten der Dosierung |
 
 #### Bekannte Standard-Item-Codes
 
@@ -70,6 +72,9 @@ Codes zu sehen, die dein konkretes Gerät tatsächlich bereitstellt.
 | Zweck | Code | Hinweise |
 |-------|------|----------|
 | pH-Dosierungs-Item | `5.42` | Bisher bei den unterstützten Familien gleich |
+| pH-Messwert-Item | `4.2` | Automatic Cl-pH (discover-verifiziert) |
+| Redox-Messwert-Item | `4.82` | Automatic Cl-pH (discover-verifiziert) |
+| Temperatur-Messwert-Item | `1` | Geräteübergreifend stabil (fest) |
 | Chlor / Redox-Item | `5.154` | Gemessenes Chlor / Redox (ACL usw.) |
 | Salzelektrolyse-Item | `5.40` | Salzsysteme (ASE / SALT) |
 | Wert für EIN | `19.17` | Wird als Ein-Wert gesendet |
@@ -96,8 +101,9 @@ tatsächlich bereitstellt:
 
 Bei manchen Geräten (z. B. Automatic Cl-pH, FW v2.30) ist kein HTTP-Readback der
 Dosier-Zustände möglich: `getItems` liefert leere Items, `device_items` bleibt leer.
-Live-Messwerte kommen weiter über `getdata.php`; Dosierung wird nur per `setItems`
-gesteuert. Tatsächliche Dosierung im Bayrol-Portal (oder per WebSocket/MQTT) prüfen.
+Live-Messwerte (pH, Redox, Temperatur) und Dosier-Schalter kommen über MQTT;
+`getdata.php` bleibt nur für Diagnose verfügbar. Tatsächliche Dosierung im
+Bayrol-Portal oder per MQTT prüfen.
 
 Wo die Geräteseite Item-Divs bereitstellt, listet `device_items` in der Diagnose
 jeden `item`-Code mit aktiv/inaktiv. Passenden Code in den Optionen eintragen
@@ -116,12 +122,13 @@ Diagnose erneut laden und den Schalter danach deaktivieren. Zusätzlich enthalte
 | `sensor.*_temperature` | Wassertemperatur (°C) |
 | `switch.*_chlorine_dosing` | Chlor / Redox-Dosierung ein/aus (angenommener Zustand) |
 | `switch.*_ph_dosing` | pH-Dosierung ein/aus (angenommener Zustand) |
-| `binary_sensor.*_connectivity` | Cloud-Verbindung |
-| `binary_sensor.*_*_alarm` | Messwert-Alarme (nur `stat_alarm`) |
+| `binary_sensor.*_connectivity` | MQTT-Verbindung |
 
-Die Dosier-Schalter nutzen einen **angenommenen (optimistischen) Zustand**: Das
-Gerät liefert den Live-Dosierstatus nicht per HTTP-API; der Schalter zeigt den
-zuletzt gesendeten Befehl, keinen gemessenen Wert. Dosierung im Bayrol-Portal prüfen.
+Messwert-Alarme sind vorübergehend entfernt, bis die Alarm-Quelle über MQTT geklärt
+ist (bisher `stat_alarm` aus `getdata.php`).
+
+Die Dosier-Schalter lesen den Zustand per MQTT (`v/`-Topics) und sind bei
+Verbindungsverlust nicht verfügbar (kein veralteter Wert).
 
 ## API-Quellen
 

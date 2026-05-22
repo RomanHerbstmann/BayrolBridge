@@ -33,6 +33,8 @@ CONF_DEVICE_NAME: Final = "device_name"
 CONF_SCAN_INTERVAL: Final = "scan_interval"
 CONF_CHLOR_METHOD: Final = "chlor_method"
 CONF_PH_ITEM: Final = "ph_item"
+CONF_PH_MEAS_ITEM: Final = "ph_meas_item"
+CONF_REDOX_MEAS_ITEM: Final = "redox_meas_item"
 CONF_CHLOR_ITEM: Final = "chlor_item"
 CONF_DOSING_ON: Final = "dosing_on"
 CONF_DOSING_OFF: Final = "dosing_off"
@@ -48,6 +50,15 @@ DOSING_ON: Final = "19.17"
 DOSING_OFF: Final = "19.18"
 
 PH_ITEM: Final = "5.42"
+
+# Default measurement items (discover-verified for Automatic Cl-pH)
+DEFAULT_PH_MEAS_ITEM: Final = "4.2"
+DEFAULT_REDOX_MEAS_ITEM: Final = "4.82"
+TEMP_MEAS_ITEM: Final = "1"
+
+PH_SCALE: Final = 0.1
+REDOX_SCALE: Final = 1.0
+TEMP_SCALE: Final = 1.0
 
 CHLOR_METHODS: Final[dict[str, dict[str, str | None]]] = {
     "redox": {"item": "5.154"},
@@ -138,15 +149,22 @@ DATA_PH_DOSING: Final = "ph_dosing"
 
 MEASUREMENT_KEYS: Final = (DATA_PH, DATA_REDOX, DATA_TEMPERATURE)
 
-# MQTT v/-topic codes for pool measurements (Stufe 3; entities map in Stufe 4)
-MEASUREMENT_MQTT_ITEMS: Final = ("4.2", "4.82", "4.91")
+
+def resolve_meas_items(
+    data: Mapping[str, object], options: Mapping[str, object]
+) -> tuple[str, str, str]:
+    """Return (temperature, pH, redox) MQTT measurement item codes."""
+    merged = {**data, **options}
+    ph = _opt_str(merged.get(CONF_PH_MEAS_ITEM)) or DEFAULT_PH_MEAS_ITEM
+    redox = _opt_str(merged.get(CONF_REDOX_MEAS_ITEM)) or DEFAULT_REDOX_MEAS_ITEM
+    return (TEMP_MEAS_ITEM, ph, redox)
 
 
 def resolve_mqtt_items(
     data: Mapping[str, object], options: Mapping[str, object]
 ) -> list[str]:
     """Return unique MQTT items to subscribe (controls + measurements)."""
-    items: set[str] = set(MEASUREMENT_MQTT_ITEMS)
+    items: set[str] = set(resolve_meas_items(data, options))
     for control in resolve_controls(data, options).values():
         items.add(control["item"])
     return sorted(

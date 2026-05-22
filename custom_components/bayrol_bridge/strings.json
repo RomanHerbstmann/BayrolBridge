@@ -48,6 +48,8 @@
           "chlor_method": "Chlorine / disinfection method",
           "chlor_item": "Override chlorine item (empty = from method)",
           "ph_item": "pH item",
+          "ph_meas_item": "pH measurement item",
+          "redox_meas_item": "Redox measurement item",
           "dosing_on": "Value for ON",
           "dosing_off": "Value for OFF",
           "debug_html": "Enable HTML diagnostics (troubleshooting only)",
@@ -56,6 +58,8 @@
         "data_description": {
           "chlor_item": "Only fill in if the method does not provide the correct item (e.g. 5.154 or 5.40).",
           "ph_item": "Bayrol topic for pH dosing (default 5.42).",
+          "ph_meas_item": "Only change if the default items do not match your device (use diagnostics/discover).",
+          "redox_meas_item": "Only change if the default items do not match your device (use diagnostics/discover).",
           "dosing_on": "MQTT value sent when dosing is turned on (default 19.17).",
           "dosing_off": "MQTT value sent when dosing is turned off (default 19.18).",
           "access_code": "Required to unlock control commands; find it in the Bayrol portal under App Link."
@@ -83,10 +87,7 @@
       "ph_dosing": { "name": "pH dosing" }
     },
     "binary_sensor": {
-      "connectivity": { "name": "Connectivity" },
-      "ph_alarm": { "name": "pH alarm" },
-      "redox_alarm": { "name": "Redox alarm" },
-      "temperature_alarm": { "name": "Temperature alarm" }
+      "connectivity": { "name": "Connectivity" }
     }
   }
 }

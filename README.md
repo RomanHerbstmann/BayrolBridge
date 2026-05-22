@@ -11,7 +11,7 @@ Unofficial Home Assistant integration for [Bayrol Pool Access](https://www.bayro
 
 - **Sensors:** pH, redox (mV), temperature (°C)
 - **Switches:** chlorine dosing (Redox/ACL), pH dosing
-- **Binary sensors:** dosing active per control, measurement alarms, cloud connectivity
+- **Binary sensor:** cloud connectivity (MQTT)
 - Config flow with controller discovery
 - Session resilience with automatic re-login
 
@@ -56,8 +56,10 @@ Because they cannot be detected reliably, they are editable without touching cod
 | Chlorine / disinfection method | `redox` | Convenient preset for the chlorine item |
 | Chlorine item override | _(empty)_ | Set only if the method does not yield the right item; overrides the method when filled |
 | pH item | `5.42` | pH dosing item |
-| Value for ON | `19.17` | Switch-on value sent to `data_json.php` |
-| Value for OFF | `19.18` | Switch-off value sent to `data_json.php` |
+| pH measurement item | `4.2` | MQTT item for pH reading (raw ÷ 10) |
+| Redox measurement item | `4.82` | MQTT item for redox (mV) |
+| Value for ON | `19.17` | MQTT value when dosing is turned on |
+| Value for OFF | `19.18` | MQTT value when dosing is turned off |
 
 #### Known default item codes
 
@@ -70,6 +72,9 @@ your specific device actually exposes.
 | Purpose | Code | Notes |
 |---------|------|-------|
 | pH dosing item | `5.42` | Same across the supported families so far |
+| pH measurement item | `4.2` | Automatic Cl-pH (discover-verified) |
+| Redox measurement item | `4.82` | Automatic Cl-pH (discover-verified) |
+| Temperature measurement item | `1` | Stable across devices (fixed) |
 | Chlorine / redox item | `5.154` | Measured chlorine / redox (ACL etc.) |
 | Salt electrolysis item | `5.40` | Salt systems (ASE / SALT) |
 | Value for ON | `19.17` | Sent as the on value |
@@ -95,8 +100,9 @@ actually exposes:
 
 On some devices (e.g. Automatic Cl-pH, FW v2.30), HTTP readback of dosing states is
 not available: `getItems` returns empty items and `device_items` stays empty. Live
-measurements still arrive via `getdata.php`; dosing control uses `setItems` only.
-Use the Bayrol portal (or WebSocket/MQTT tools) to confirm actual dosing.
+live measurements (pH, redox, temperature) and dosing switches use MQTT;
+`getdata.php` remains for diagnostics only. Use the Bayrol portal or MQTT tools
+to confirm actual dosing.
 
 Where the device page exposes item divs, the `device_items` section in diagnostics
 lists each `item` code with active/inactive state. Pick the relevant code for the
@@ -116,12 +122,13 @@ also includes `raw_getdata` and `data_json_probes` to help derive item codes whe
 | `sensor.*_temperature` | Water temperature (°C) |
 | `switch.*_chlorine_dosing` | Chlorine / Redox dosing on/off (assumed state) |
 | `switch.*_ph_dosing` | pH dosing on/off (assumed state) |
-| `binary_sensor.*_connectivity` | Cloud connection |
-| `binary_sensor.*_*_alarm` | Measurement alarms (`stat_alarm` only) |
+| `binary_sensor.*_connectivity` | MQTT connection |
 
-The dosing switches use an **assumed (optimistic) state**: this device does not
-expose the live dosing state over the HTTP API, so the switch reflects the last
-command sent, not a measured value. Verify actual dosing in the Bayrol portal.
+Measurement alarms are temporarily removed until the alarm source over MQTT is
+identified (previously `stat_alarm` from `getdata.php`).
+
+Dosing switches read state from MQTT (`v/` topics) and become unavailable when
+the connection is lost (no stale values).
 
 ## API sources
 

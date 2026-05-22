@@ -21,6 +21,10 @@ from custom_components.bayrol_bridge.const import (
     CONF_CID,
     CONF_DOSING_ON,
     CONF_PH_ITEM,
+    CONF_PH_MEAS_ITEM,
+    CONF_REDOX_MEAS_ITEM,
+    DEFAULT_PH_MEAS_ITEM,
+    DEFAULT_REDOX_MEAS_ITEM,
     DOMAIN,
 )
 
@@ -281,6 +285,56 @@ async def test_options_flow_saves_overrides_and_strips_empty(hass) -> None:
         assert entry.options[CONF_DOSING_ON] == "1.1"
         assert "dosing_off" not in entry.options
         mock_reload.assert_awaited_once_with(entry.entry_id)
+
+
+async def test_options_flow_saves_meas_items_and_empty_uses_default(hass) -> None:
+    """Options flow persists pH/redox measurement items; empty fields are omitted."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_USERNAME: "user@example.com",
+            CONF_PASSWORD: "secret",
+            CONF_CID: "42",
+            CONF_CHLOR_METHOD: "redox",
+        },
+        options={},
+    )
+    entry.add_to_hass(hass)
+
+    with patch.object(
+        hass.config_entries, "async_reload", new_callable=AsyncMock
+    ):
+        options_flow = await hass.config_entries.options.async_init(entry.entry_id)
+        result = await hass.config_entries.options.async_configure(
+            options_flow["flow_id"],
+            {
+                CONF_CHLOR_METHOD: "redox",
+                CONF_PH_MEAS_ITEM: "9.9",
+                CONF_REDOX_MEAS_ITEM: "8.8",
+            },
+        )
+        assert result["type"] == "create_entry"
+        assert entry.options[CONF_PH_MEAS_ITEM] == "9.9"
+        assert entry.options[CONF_REDOX_MEAS_ITEM] == "8.8"
+
+        options_flow = await hass.config_entries.options.async_init(entry.entry_id)
+        result = await hass.config_entries.options.async_configure(
+            options_flow["flow_id"],
+            {
+                CONF_CHLOR_METHOD: "redox",
+                CONF_PH_MEAS_ITEM: "   ",
+                CONF_REDOX_MEAS_ITEM: "",
+            },
+        )
+        assert result["type"] == "create_entry"
+        assert CONF_PH_MEAS_ITEM not in entry.options
+        assert CONF_REDOX_MEAS_ITEM not in entry.options
+
+    from custom_components.bayrol_bridge.const import resolve_meas_items
+
+    _, ph, redox = resolve_meas_items(entry.data, entry.options)
+    assert ph == DEFAULT_PH_MEAS_ITEM
+    assert redox == DEFAULT_REDOX_MEAS_ITEM
 
 
 async def test_options_flow_saves_access_code_and_strips_empty(hass) -> None:

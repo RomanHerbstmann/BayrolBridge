@@ -12,7 +12,15 @@ from homeassistant.const import UnitOfElectricPotential, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DATA_PH, DATA_REDOX, DATA_TEMPERATURE, DOMAIN
+from .const import (
+    DATA_CONNECTIVITY,
+    DOMAIN,
+    PH_SCALE,
+    REDOX_SCALE,
+    TEMP_MEAS_ITEM,
+    TEMP_SCALE,
+    resolve_meas_items,
+)
 from .entity import BayrolBridgeEntity
 
 
@@ -28,13 +36,29 @@ async def async_setup_entry(
     cid = runtime["cid"]
     entry_id = entry.entry_id
 
+    _, ph_item, redox_item = resolve_meas_items(entry.data, entry.options)
+
     sensors: list[BayrolBridgeSensor] = [
         BayrolBridgeSensor(
             coordinator,
             entry_id,
             device_name,
             cid,
-            DATA_PH,
+            TEMP_MEAS_ITEM,
+            TEMP_SCALE,
+            "temperature",
+            UnitOfTemperature.CELSIUS,
+            SensorStateClass.MEASUREMENT,
+            SensorDeviceClass.TEMPERATURE,
+            None,
+        ),
+        BayrolBridgeSensor(
+            coordinator,
+            entry_id,
+            device_name,
+            cid,
+            ph_item,
+            PH_SCALE,
             "ph",
             None,
             SensorStateClass.MEASUREMENT,
@@ -46,24 +70,13 @@ async def async_setup_entry(
             entry_id,
             device_name,
             cid,
-            DATA_REDOX,
+            redox_item,
+            REDOX_SCALE,
             "redox",
             UnitOfElectricPotential.MILLIVOLT,
             SensorStateClass.MEASUREMENT,
             None,
             "mdi:flash",
-        ),
-        BayrolBridgeSensor(
-            coordinator,
-            entry_id,
-            device_name,
-            cid,
-            DATA_TEMPERATURE,
-            "temperature",
-            UnitOfTemperature.CELSIUS,
-            SensorStateClass.MEASUREMENT,
-            SensorDeviceClass.TEMPERATURE,
-            None,
         ),
     ]
 
@@ -71,7 +84,7 @@ async def async_setup_entry(
 
 
 class BayrolBridgeSensor(BayrolBridgeEntity, SensorEntity):
-    """Measurement sensor."""
+    """Measurement sensor (MQTT items + scaling)."""
 
     def __init__(
         self,
@@ -79,7 +92,8 @@ class BayrolBridgeSensor(BayrolBridgeEntity, SensorEntity):
         entry_id: str,
         device_name: str,
         cid: str,
-        data_key: str,
+        item: str,
+        scale: float,
         translation_key: str,
         unit: str | None,
         state_class: SensorStateClass | None,
@@ -88,7 +102,8 @@ class BayrolBridgeSensor(BayrolBridgeEntity, SensorEntity):
     ) -> None:
         """Initialize sensor."""
         super().__init__(coordinator, entry_id, device_name, cid)
-        self._data_key = data_key
+        self._item = item
+        self._scale = scale
         self._attr_unique_id = f"{cid}_{translation_key}"
         self._attr_translation_key = translation_key
         self._attr_native_unit_of_measurement = unit
@@ -97,10 +112,26 @@ class BayrolBridgeSensor(BayrolBridgeEntity, SensorEntity):
         if icon:
             self._attr_icon = icon
 
-    @property
-    def native_value(self) -> float | str | None:
-        """Return sensor value."""
-        if self.coordinator.data is None:
+    def _read_scaled(self) -> float | None:
+        """Read raw MQTT item value and apply scale."""
+        data = self.coordinator.data or {}
+        raw = data.get("items", {}).get(self._item)
+        if raw is None:
             return None
-        return self.coordinator.data.get(self._data_key)
+        try:
+            return round(float(raw) * self._scale, 2)
+        except (TypeError, ValueError):
+            return None
 
+    @property
+    def native_value(self) -> float | None:
+        """Return scaled sensor value."""
+        return self._read_scaled()
+
+    @property
+    def available(self) -> bool:
+        """Unavailable when MQTT is disconnected."""
+        if not self.coordinator.last_update_success:
+            return False
+        data = self.coordinator.data or {}
+        return bool(data.get(DATA_CONNECTIVITY))
