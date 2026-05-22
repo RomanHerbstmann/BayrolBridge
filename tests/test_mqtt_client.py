@@ -93,6 +93,31 @@ async def test_on_connect_subscribes_v_wildcard(hass_loop) -> None:
     assert client.connected is True
 
 
+async def test_on_connection_change_connect_and_disconnect(hass_loop) -> None:
+    """on_connection_change is invoked on successful connect and disconnect."""
+    states: list[bool] = []
+
+    with patch("custom_components.bayrol_bridge.mqtt_client.Client") as mock_client_cls:
+        mock_paho = MagicMock()
+        mock_client_cls.return_value = mock_paho
+        client = BayrolMqttClient(
+            hass_loop,
+            _TOKEN,
+            _SERIAL,
+            lambda _i, _v: None,
+            on_connection_change=states.append,
+        )
+        paho_client = client._make_client()
+
+    paho_client.on_connect(paho_client, None, {}, 0, None)
+    await asyncio.sleep(0)
+    assert states == [True]
+
+    paho_client.on_disconnect(paho_client, None, {}, 0, None)
+    await asyncio.sleep(0)
+    assert states == [True, False]
+
+
 async def test_async_set_payload(hass_loop) -> None:
     """async_set publishes JSON {\"t\": item, \"v\": value}."""
     published: list[tuple[str, bytes]] = []

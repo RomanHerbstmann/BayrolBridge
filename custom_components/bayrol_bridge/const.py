@@ -137,3 +137,19 @@ DATA_CHLORINE_DOSING: Final = "chlorine_dosing"
 DATA_PH_DOSING: Final = "ph_dosing"
 
 MEASUREMENT_KEYS: Final = (DATA_PH, DATA_REDOX, DATA_TEMPERATURE)
+
+# MQTT v/-topic codes for pool measurements (Stufe 3; entities map in Stufe 4)
+MEASUREMENT_MQTT_ITEMS: Final = ("4.2", "4.82", "4.91")
+
+
+def resolve_mqtt_items(
+    data: Mapping[str, object], options: Mapping[str, object]
+) -> list[str]:
+    """Return unique MQTT items to subscribe (controls + measurements)."""
+    items: set[str] = set(MEASUREMENT_MQTT_ITEMS)
+    for control in resolve_controls(data, options).values():
+        items.add(control["item"])
+    return sorted(
+        items,
+        key=lambda item: tuple(int(part) for part in item.split(".")),
+    )

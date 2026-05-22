@@ -62,12 +62,14 @@ class BayrolMqttClient:
         access_token: str,
         serial: str,
         on_value: Callable[[str, str], None],
+        on_connection_change: Callable[[bool], None] | None = None,
     ) -> None:
         """Initialize client; ``on_value`` receives (item, value) from v/-topics."""
         self._hass = hass
         self._access_token = access_token
         self._serial = serial
         self._on_value = on_value
+        self._on_connection_change = on_connection_change
         self._client: Client | None = None
         self._connected = False
         self._ready = asyncio.Event()
@@ -100,10 +102,12 @@ class BayrolMqttClient:
             if reason_code != 0 and getattr(reason_code, "value", reason_code) != 0:
                 self._connected = False
                 _LOGGER.warning("MQTT connect failed: %s", reason_code)
+                self._notify_connection_change(False)
                 return
             self._connected = True
             sub_topic = f"{TOPIC_PREFIX}/{self._serial}/v/#"
             mqtt_client.subscribe(sub_topic)
+            self._notify_connection_change(True)
             self._hass.loop.call_soon_threadsafe(self._ready.set)
 
         def on_disconnect(
@@ -114,6 +118,7 @@ class BayrolMqttClient:
             _properties: mqtt.Properties | None,
         ) -> None:
             self._connected = False
+            self._notify_connection_change(False)
 
         def on_message(
             _mqtt_client: Client, _userdata: Any, msg: MQTTMessage
@@ -133,6 +138,11 @@ class BayrolMqttClient:
 
     def _dispatch_value(self, item: str, value: str) -> None:
         self._on_value(item, value)
+
+    def _notify_connection_change(self, connected: bool) -> None:
+        if self._on_connection_change is None:
+            return
+        self._hass.loop.call_soon_threadsafe(self._on_connection_change, connected)
 
     async def async_connect(self) -> None:
         """Connect via WebSocket and subscribe to v/#."""

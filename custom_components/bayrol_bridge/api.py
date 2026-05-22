@@ -129,6 +129,11 @@ class BayrolApiClient:
         self._chlor_method = chlor_method
         self._controls = controls or get_controls(chlor_method)
 
+    def set_credentials(self, username: str, password: str) -> None:
+        """Store portal login credentials for session refresh."""
+        self._username = username
+        self._password = password
+
     def _url(self, path: str) -> str:
         return f"{BASE_URL}/{path.lstrip('/')}"
 

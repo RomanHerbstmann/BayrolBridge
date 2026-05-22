@@ -63,6 +63,15 @@ async def test_async_fetch_mqtt_credentials_http_error() -> None:
                 await client.async_fetch_mqtt_credentials("APP123")
 
 
+async def test_set_credentials() -> None:
+    """set_credentials stores username and password on the client."""
+    async with aiohttp.ClientSession() as session:
+        client = BayrolApiClient(session)
+        client.set_credentials("pooluser", "secret")
+    assert client._username == "pooluser"
+    assert client._password == "secret"
+
+
 async def test_async_fetch_mqtt_credentials_invalid_json() -> None:
     """Non-JSON body raises BayrolConnectionError."""
     with aioresponses() as mocked:
