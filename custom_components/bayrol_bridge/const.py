@@ -7,6 +7,15 @@ from typing import Final, TypedDict
 
 DOMAIN: Final = "bayrol_bridge"
 
+# MQTT-over-WebSocket (Pool Access API, Stufe 2)
+MQTT_HOST: Final = "www.bayrol-poolaccess.de"
+MQTT_PORT: Final = 8083
+MQTT_WS_PATH: Final = "/"
+MQTT_KEEPALIVE: Final = 60
+MQTT_PASSWORD: Final = "*"
+API_CODE_PATH: Final = "/api/"  # GET /api/?code=<code>
+TOPIC_PREFIX: Final = "d02"  # d02/<serial>/{g,s,v}/<item>
+
 BASE_URL: Final = "https://www.bayrol-poolaccess.de/webview"
 
 # Session / login (razem-io/ha-bayrol-cloud; fallback paths per portal spec)

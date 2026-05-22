@@ -13,6 +13,7 @@ from aiohttp import ClientSession, ClientTimeout
 from bs4 import BeautifulSoup, Tag
 
 from .const import (
+    API_CODE_PATH,
     BASE_URL,
     CHLOR_METHODS,
     ControlConfig,
@@ -22,6 +23,7 @@ from .const import (
     DATA_STATUS,
     DEFAULT_CHLOR_METHOD,
     MEASUREMENT_KEYS,
+    MQTT_HOST,
     PATH_DATA_JSON,
     PATH_DEVICE,
     PATH_GETDATA,
@@ -303,6 +305,39 @@ class BayrolApiClient:
         """Authenticate (acquires the lock)."""
         async with self._lock:
             await self._login_locked(username, password)
+
+    async def async_fetch_mqtt_credentials(self, code: str) -> tuple[str, str]:
+        """GET /api/?code=<code> → (access_token, device_serial)."""
+        url = f"https://{MQTT_HOST}{API_CODE_PATH}"
+        try:
+            async with self._session.get(
+                url,
+                params={"code": code},
+                headers={**BASE_HEADERS, "Accept": "application/json"},
+                timeout=self._timeout,
+            ) as response:
+                body = await response.text()
+                if response.status != 200:
+                    raise BayrolAuthError(
+                        f"Credentials request returned {response.status}"
+                    )
+        except aiohttp.ClientError as err:
+            raise BayrolConnectionError(str(err)) from err
+
+        try:
+            data = json.loads(body)
+        except (ValueError, TypeError) as err:
+            raise BayrolConnectionError("Credentials response is not valid JSON") from err
+
+        if not isinstance(data, dict):
+            raise BayrolConnectionError("Credentials response is not a JSON object")
+
+        token = data.get("accessToken")
+        serial = data.get("deviceSerial")
+        if not token or not serial:
+            raise BayrolAuthError("Credentials response incomplete")
+
+        return str(token), str(serial)
 
     async def _ensure_logged_in(self) -> None:
         if self._logged_in and self._phpsessid:
