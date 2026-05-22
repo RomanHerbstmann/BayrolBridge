@@ -7,6 +7,7 @@ import logging
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
@@ -47,7 +48,9 @@ async def async_setup_entry(
                 device_name,
                 cid,
                 control_key,
-                control["name"],
+                control["item"],
+                control["value_on"],
+                control["value_off"],
             )
         )
 
@@ -55,7 +58,7 @@ async def async_setup_entry(
 
 
 class BayrolBridgeSwitch(BayrolBridgeEntity, SwitchEntity):
-    """Bayrol dosing switch (optimistic state; no HTTP readback on some devices)."""
+    """Bayrol dosing switch (MQTT set + v/- readback)."""
 
     def __init__(
         self,
@@ -64,20 +67,31 @@ class BayrolBridgeSwitch(BayrolBridgeEntity, SwitchEntity):
         device_name: str,
         cid: str,
         control_key: str,
-        control_name: str,
+        item: str,
+        value_on: str,
+        value_off: str,
     ) -> None:
         """Initialize switch."""
         super().__init__(coordinator, entry_id, device_name, cid)
         self._control_key = control_key
-        self._attr_assumed_state = True
-        self._optimistic_state: bool | None = None
+        self._item = item
+        self._value_on = value_on
+        self._value_off = value_off
         self._attr_unique_id = f"{cid}_{control_key}_dosing"
         self._attr_translation_key = f"{control_key}_dosing"
 
     @property
     def is_on(self) -> bool | None:
-        """Return last commanded switch state."""
-        return self._optimistic_state
+        """Return dosing state from MQTT v/- readback."""
+        data = self.coordinator.data or {}
+        raw = data.get("items", {}).get(self._item)
+        if raw is None:
+            return None
+        if raw == self._value_on:
+            return True
+        if raw == self._value_off:
+            return False
+        return None
 
     @property
     def available(self) -> bool:
@@ -96,8 +110,8 @@ class BayrolBridgeSwitch(BayrolBridgeEntity, SwitchEntity):
         await self._async_set(False)
 
     async def _async_set(self, enabled: bool) -> None:
-        await self.coordinator.client.set_control(
-            self._cid, self._control_key, enabled
-        )
-        self._optimistic_state = enabled
-        self.async_write_ha_state()
+        mqtt = self.coordinator.mqtt
+        if mqtt is None:
+            raise HomeAssistantError("MQTT not connected")
+        value = self._value_on if enabled else self._value_off
+        await mqtt.async_set(self._item, value)

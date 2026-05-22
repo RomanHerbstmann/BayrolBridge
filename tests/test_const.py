@@ -10,9 +10,11 @@ from custom_components.bayrol_bridge.const import (
     CONF_PH_ITEM,
     DOSING_OFF,
     DOSING_ON,
+    MEASUREMENT_MQTT_ITEMS,
     PH_ITEM,
     get_controls,
     resolve_controls,
+    resolve_mqtt_items,
 )
 
 
@@ -65,3 +67,11 @@ def test_resolve_controls_options_take_precedence() -> None:
     assert controls["ph"]["item"] == "5.77"
     assert controls["ph"]["value_on"] == "9.9"
     assert controls["ph"]["value_off"] == DOSING_OFF
+
+
+def test_resolve_mqtt_items_includes_controls_and_measurements() -> None:
+    """MQTT items list contains dosing controls and measurement topics."""
+    items = resolve_mqtt_items({CONF_CHLOR_METHOD: "redox"}, {})
+    assert set(MEASUREMENT_MQTT_ITEMS).issubset(items)
+    assert "5.42" in items
+    assert "5.154" in items
