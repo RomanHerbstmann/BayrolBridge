@@ -26,11 +26,14 @@ Inoffizielle Home-Assistant-Integration für [Bayrol Pool Access](https://www.ba
 
 Es gibt **keine lokale LAN-API** — die Integration nutzt ausschließlich Bayrol Pool Access in der Cloud.
 
-### App-Link-Code (erforderlich)
+### App-Link-Code (automatisch)
 
-MQTT-Zugangsdaten werden mit dem **App-Link**-Code aus dem Bayrol-Portal bezogen
-(**App Link** / App-Link-URL). In den Integrationsoptionen als **Geräte-/App-Link-Code**
-eintragen. Ohne gültigen Code sind Steuerung und Live-MQTT-Daten nicht verfügbar.
+MQTT-Zugangsdaten werden mit einem kurzlebigen **App-Link**-Code aus dem Bayrol-Portal
+bezogen. Die Integration liest ihn bei Bedarf automatisch von der Geräteseite
+(`device.php`) aus — **E-Mail und Passwort** reichen für die Einrichtung.
+
+Optional kann in den Integrationsoptionen ein **App-Link-Code** als Fallback
+eingetragen werden (z. B. wenn die Portal-HTML-Struktur abweicht).
 
 ## Installation
 
@@ -60,8 +63,6 @@ Die Methode wird per Best-Effort-Autoerkennung vorausgewählt; du kannst sie üb
 
 Optional: Abfrageintervall setzen (Minimum 30 Sekunden, Standard 60).
 
-Danach unter **Konfigurieren** den **App-Link-Code** eintragen (für MQTT erforderlich).
-
 ### Optionen (konfigurierbare Item-Codes)
 
 Die Item-Codes für Dosierung und die Ein-/Aus-Werte unterscheiden sich je nach
@@ -72,7 +73,7 @@ ohne Codeänderung editierbar:
 
 | Option | Standard | Hinweise |
 |--------|----------|----------|
-| Geräte-/App-Link-Code | _(erforderlich)_ | Im Bayrol-Portal unter **App Link**; schaltet MQTT-Token frei |
+| App-Link-Code | _(leer)_ | Optionaler Fallback; normalerweise automatisch aus dem Portal |
 | Chlor-/Desinfektionsmethode | `redox` | Bequeme Voreinstellung für das Chlor-Item |
 | Chlor-Item-Override | _(leer)_ | Nur setzen, wenn die Methode nicht passt; überschreibt die Methode, wenn ausgefüllt |
 | pH-Item | `5.42` | pH-Dosierungs-Item |

@@ -7,7 +7,6 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import BayrolApiClient
@@ -43,10 +42,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     else:
         access_code = None
 
-    if not access_code:
-        _LOGGER.error("App-Link-Code erforderlich für MQTT-Betrieb")
-        raise ConfigEntryAuthFailed("App-Link-Code erforderlich")
-
     client = BayrolApiClient(
         session,
         chlor_method=chlor_method,
@@ -61,6 +56,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         client,
         mqtt_items,
         access_code,
+        entry.data[CONF_CID],
         entry.data[CONF_USERNAME],
         entry.data[CONF_PASSWORD],
     )

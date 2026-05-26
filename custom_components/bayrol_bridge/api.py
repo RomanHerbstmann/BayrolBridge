@@ -55,6 +55,7 @@ _EMAIL_RE = re.compile(
 _HEX_TOKEN_RE = re.compile(r"\b[0-9a-fA-F]{8,}\b")
 _LONG_DIGITS_RE = re.compile(r"\b\d{8,}\b")
 _SESSION_RE = re.compile(r"PHPSESSID[=:]\s*\S+", re.IGNORECASE)
+_APP_CODE_RE = re.compile(r"index\.html\?code=([A-Za-z0-9\-]+)")
 
 BASE_HEADERS = {
     "User-Agent": (
@@ -341,6 +342,23 @@ class BayrolApiClient:
             raise BayrolAuthError("Credentials response incomplete")
 
         return str(token), str(serial)
+
+    async def async_fetch_app_code(self, cid: str) -> str:
+        """Parse the (short-lived) app-link code from the device page HTML."""
+        html = await self._fetch_device_html(cid)
+        match = _APP_CODE_RE.search(html)
+        if not match:
+            raise BayrolConnectionError(
+                "App-Link-Code nicht in device.php gefunden"
+            )
+        return match.group(1)
+
+    async def async_fetch_mqtt_credentials_auto(
+        self, cid: str
+    ) -> tuple[str, str]:
+        """Derive a fresh app-link code from device.php, then fetch MQTT creds."""
+        code = await self.async_fetch_app_code(cid)
+        return await self.async_fetch_mqtt_credentials(code)
 
     async def _ensure_logged_in(self) -> None:
         if self._logged_in and self._phpsessid:

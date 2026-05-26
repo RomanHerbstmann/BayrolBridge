@@ -26,11 +26,14 @@ Unofficial Home Assistant integration for [Bayrol Pool Access](https://www.bayro
 
 There is **no local LAN API** — the integration talks to Bayrol Pool Access in the cloud only.
 
-### App Link code (required)
+### App Link code (automatic)
 
-MQTT credentials are obtained with the device **App Link** code from the Bayrol portal
-(**App Link** / app-link URL). Enter it under integration options as **Device / app-link code**.
-Without a valid code, control and live MQTT data are not available.
+MQTT credentials use a short-lived **App Link** code from the Bayrol portal. The
+integration fetches it from the device page (`device.php`) when needed — **email and
+password** are enough for setup.
+
+You may optionally set an **App Link code** under integration options as a fallback
+(e.g. if the portal HTML layout differs).
 
 ## Installation
 
@@ -61,8 +64,6 @@ The method is pre-selected via best-effort auto-detection; you can override it.
 
 Optional: set the polling interval (minimum 30 seconds, default 60).
 
-After setup, open **Configure** and set the **App Link code** (required for MQTT).
-
 ### Options (configurable item codes)
 
 The dosing item codes and on/off values differ between Bayrol device generations.
@@ -72,7 +73,7 @@ Because they cannot be detected reliably, they are editable without touching cod
 
 | Option | Default | Notes |
 |--------|---------|-------|
-| Device / app-link code | _(required)_ | From Bayrol portal → **App Link**; unlocks MQTT token |
+| App-link code | _(empty)_ | Optional fallback; usually obtained automatically from the portal |
 | Chlorine / disinfection method | `redox` | Convenient preset for the chlorine item |
 | Chlorine item override | _(empty)_ | Set only if the method does not yield the right item; overrides the method when filled |
 | pH item | `5.42` | pH dosing item |

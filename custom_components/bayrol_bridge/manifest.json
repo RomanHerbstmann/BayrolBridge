@@ -8,5 +8,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/RomanHerbstmann/BayrolBridge/issues",
   "requirements": ["beautifulsoup4>=4.12.0", "paho-mqtt>=1.6"],
-  "version": "0.2.0"
+  "version": "0.2.1"
 }

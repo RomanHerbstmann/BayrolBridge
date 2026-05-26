@@ -53,7 +53,7 @@
           "dosing_on": "Wert für EIN",
           "dosing_off": "Wert für AUS",
           "debug_html": "Debug-Diagnose (Rohdaten, nur zur Fehlersuche)",
-          "access_code": "Geräte-/App-Link-Code (für Steuerung)"
+          "access_code": "App-Link-Code (optional, nur Fallback)"
         },
         "data_description": {
           "chlor_item": "Nur ausfüllen, wenn die Methode nicht das richtige Item liefert (z. B. 5.154 oder 5.40).",
@@ -62,7 +62,7 @@
           "redox_meas_item": "Nur ändern, wenn die Standard-Items nicht passen (per Diagnose/discover ermittelbar).",
           "dosing_on": "MQTT-Wert beim Einschalten der Dosierung (Standard 19.17).",
           "dosing_off": "MQTT-Wert beim Ausschalten der Dosierung (Standard 19.18).",
-          "access_code": "Wird zum Entsperren der Steuerbefehle benötigt; im Bayrol-Portal unter App Link zu finden."
+          "access_code": "Wird normalerweise automatisch aus dem Portal ermittelt; nur bei Problemen manuell eintragen (Bayrol-Portal → App Link)."
         }
       }
     }

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.1] – 2026-05-26
+
+### Fixed
+
+- App-link code is fetched automatically from `device.php` on each MQTT token refresh; manual code in options is optional fallback only (fixes daily token expiry when a stale code was stored)
+
 ## [0.2.0] – 2026-05-22
 
 ### Added
