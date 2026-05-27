@@ -17,22 +17,16 @@ from custom_components.bayrol_bridge.coordinator import BayrolBridgeCoordinator
 pytestmark = pytest.mark.asyncio
 
 _ITEMS = ["4.2", "5.42", "5.154"]
-_CODE = "APP-LINK-123"
 _CID = "cid-99"
 
 
 def _make_coordinator(
     hass,
     client: BayrolApiClient | None = None,
-    *,
-    access_code: str | None = _CODE,
 ) -> BayrolBridgeCoordinator:
     if client is None:
         client = MagicMock(spec=BayrolApiClient)
         client.login = AsyncMock()
-        client.async_fetch_mqtt_credentials = AsyncMock(
-            return_value=("token123", "SERIAL1")
-        )
         client.async_fetch_mqtt_credentials_auto = AsyncMock(
             return_value=("token123", "SERIAL1")
         )
@@ -40,7 +34,6 @@ def _make_coordinator(
         hass,
         client,
         _ITEMS,
-        access_code,
         _CID,
         "user",
         "pass",
@@ -78,7 +71,7 @@ async def test_async_start_fetches_credentials_connects_and_requests(hass) -> No
     """async_start logs in, connects MQTT, and requests each item."""
     client = MagicMock(spec=BayrolApiClient)
     client.login = AsyncMock()
-    client.async_fetch_mqtt_credentials = AsyncMock(return_value=("tok", "SN"))
+    client.async_fetch_mqtt_credentials_auto = AsyncMock(return_value=("tok", "SN"))
     coordinator = _make_coordinator(hass, client)
 
     mock_mqtt = MagicMock()
@@ -91,7 +84,7 @@ async def test_async_start_fetches_credentials_connects_and_requests(hass) -> No
         await coordinator.async_start()
 
     client.login.assert_awaited_once_with("user", "pass")
-    client.async_fetch_mqtt_credentials.assert_awaited_once_with(_CODE)
+    client.async_fetch_mqtt_credentials_auto.assert_awaited_once_with(_CID)
     mock_cls.assert_called_once()
     call_kwargs = mock_cls.call_args.kwargs
     assert call_kwargs["request_items"] == _ITEMS
@@ -100,12 +93,12 @@ async def test_async_start_fetches_credentials_connects_and_requests(hass) -> No
     assert coordinator.data["connectivity"] is True
 
 
-async def test_async_start_without_code_uses_auto_path(hass) -> None:
-    """Missing manual access code uses device.php auto credentials."""
+async def test_async_start_uses_auto_path(hass) -> None:
+    """Credential fetch uses device.php auto credentials."""
     client = MagicMock(spec=BayrolApiClient)
     client.login = AsyncMock()
     client.async_fetch_mqtt_credentials_auto = AsyncMock(return_value=("tok", "SN"))
-    coordinator = _make_coordinator(hass, client, access_code=None)
+    coordinator = _make_coordinator(hass, client)
 
     mock_mqtt = MagicMock()
     mock_mqtt.async_connect = AsyncMock()
@@ -117,45 +110,27 @@ async def test_async_start_without_code_uses_auto_path(hass) -> None:
         await coordinator.async_start()
 
     client.login.assert_awaited_once_with("user", "pass")
-    client.async_fetch_mqtt_credentials.assert_not_called()
     client.async_fetch_mqtt_credentials_auto.assert_awaited_once_with(_CID)
 
 
-async def test_provide_token_prefers_manual_code(hass) -> None:
-    """Token refresh with manual code skips auto fetch."""
+async def test_provide_token_uses_auto(hass) -> None:
+    """Token refresh uses device.php credentials."""
     client = MagicMock(spec=BayrolApiClient)
     client.login = AsyncMock()
-    client.async_fetch_mqtt_credentials = AsyncMock(return_value=("tok", "SN"))
-    client.async_fetch_mqtt_credentials_auto = AsyncMock()
+    client.async_fetch_mqtt_credentials_auto = AsyncMock(return_value=("tok", "SN"))
     coordinator = _make_coordinator(hass, client)
 
     token, serial = await coordinator._provide_token()
 
     assert (token, serial) == ("tok", "SN")
-    client.async_fetch_mqtt_credentials.assert_awaited_once_with(_CODE)
-    client.async_fetch_mqtt_credentials_auto.assert_not_called()
-
-
-async def test_provide_token_without_code_uses_auto(hass) -> None:
-    """Token refresh without manual code uses device.php."""
-    client = MagicMock(spec=BayrolApiClient)
-    client.login = AsyncMock()
-    client.async_fetch_mqtt_credentials = AsyncMock()
-    client.async_fetch_mqtt_credentials_auto = AsyncMock(return_value=("tok", "SN"))
-    coordinator = _make_coordinator(hass, client, access_code=None)
-
-    token, serial = await coordinator._provide_token()
-
-    assert (token, serial) == ("tok", "SN")
     client.async_fetch_mqtt_credentials_auto.assert_awaited_once_with(_CID)
-    client.async_fetch_mqtt_credentials.assert_not_called()
 
 
 async def test_async_start_auth_error_raises_config_entry_auth_failed(hass) -> None:
     """BayrolAuthError during credential fetch becomes ConfigEntryAuthFailed."""
     client = MagicMock(spec=BayrolApiClient)
     client.login = AsyncMock()
-    client.async_fetch_mqtt_credentials = AsyncMock(
+    client.async_fetch_mqtt_credentials_auto = AsyncMock(
         side_effect=BayrolAuthError("bad code")
     )
     coordinator = _make_coordinator(hass, client)
@@ -168,7 +143,7 @@ async def test_async_start_connection_error_raises_not_ready(hass) -> None:
     """BayrolConnectionError during MQTT connect becomes ConfigEntryNotReady."""
     client = MagicMock(spec=BayrolApiClient)
     client.login = AsyncMock()
-    client.async_fetch_mqtt_credentials = AsyncMock(return_value=("tok", "SN"))
+    client.async_fetch_mqtt_credentials_auto = AsyncMock(return_value=("tok", "SN"))
     coordinator = _make_coordinator(hass, client)
 
     mock_mqtt = MagicMock()
