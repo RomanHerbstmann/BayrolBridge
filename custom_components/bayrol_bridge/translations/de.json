@@ -52,8 +52,7 @@
           "redox_meas_item": "Redox-Messwert-Item",
           "dosing_on": "Wert für EIN",
           "dosing_off": "Wert für AUS",
-          "debug_html": "Debug-Diagnose (Rohdaten, nur zur Fehlersuche)",
-          "access_code": "App-Link-Code (optional, nur Fallback)"
+          "debug_html": "Debug-Diagnose (Rohdaten, nur zur Fehlersuche)"
         },
         "data_description": {
           "chlor_item": "Nur ausfüllen, wenn die Methode nicht das richtige Item liefert (z. B. 5.154 oder 5.40).",
@@ -61,8 +60,7 @@
           "ph_meas_item": "Nur ändern, wenn die Standard-Items nicht passen (per Diagnose/discover ermittelbar).",
           "redox_meas_item": "Nur ändern, wenn die Standard-Items nicht passen (per Diagnose/discover ermittelbar).",
           "dosing_on": "MQTT-Wert beim Einschalten der Dosierung (Standard 19.17).",
-          "dosing_off": "MQTT-Wert beim Ausschalten der Dosierung (Standard 19.18).",
-          "access_code": "Wird normalerweise automatisch aus dem Portal ermittelt; nur bei Problemen manuell eintragen (Bayrol-Portal → App Link)."
+          "dosing_off": "MQTT-Wert beim Ausschalten der Dosierung (Standard 19.18)."
         }
       }
     }

@@ -1,0 +1,3 @@
+# Standalone tools (e.g. tools/mqtt_poc.py) — not required for HA integration runtime
+paho-mqtt>=1.6
+requests>=2.31.0

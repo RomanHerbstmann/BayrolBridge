@@ -24,7 +24,6 @@ class BayrolBridgeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         hass: HomeAssistant,
         client: BayrolApiClient,
         items: list[str],
-        access_code: str | None,
         cid: str,
         username: str,
         password: str,
@@ -32,7 +31,6 @@ class BayrolBridgeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Initialize coordinator."""
         self.client = client
         self._items = items
-        self._access_code = (access_code or "").strip() or None
         self._cid = cid
         self._username = username
         self._password = password
@@ -73,8 +71,6 @@ class BayrolBridgeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _provide_token(self) -> tuple[str, str]:
         """Refresh HTTP session and fetch new MQTT credentials."""
         await self.client.login(self._username, self._password)
-        if self._access_code:
-            return await self.client.async_fetch_mqtt_credentials(self._access_code)
         return await self.client.async_fetch_mqtt_credentials_auto(self._cid)
 
     async def async_start(self) -> None:
@@ -87,14 +83,9 @@ class BayrolBridgeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise ConfigEntryNotReady(str(err)) from err
 
         try:
-            if self._access_code:
-                token, serial = await self.client.async_fetch_mqtt_credentials(
-                    self._access_code
-                )
-            else:
-                token, serial = await self.client.async_fetch_mqtt_credentials_auto(
-                    self._cid
-                )
+            token, serial = await self.client.async_fetch_mqtt_credentials_auto(
+                self._cid
+            )
         except BayrolAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except BayrolConnectionError as err:

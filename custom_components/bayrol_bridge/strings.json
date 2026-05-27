@@ -52,8 +52,7 @@
           "redox_meas_item": "Redox measurement item",
           "dosing_on": "Value for ON",
           "dosing_off": "Value for OFF",
-          "debug_html": "Debug diagnostics (raw data, troubleshooting only)",
-          "access_code": "App-link code (optional fallback)"
+          "debug_html": "Debug diagnostics (raw data, troubleshooting only)"
         },
         "data_description": {
           "chlor_item": "Only fill in if the method does not provide the correct item (e.g. 5.154 or 5.40).",
@@ -61,8 +60,7 @@
           "ph_meas_item": "Only change if the default items do not match your device (use diagnostics/discover).",
           "redox_meas_item": "Only change if the default items do not match your device (use diagnostics/discover).",
           "dosing_on": "MQTT value sent when dosing is turned on (default 19.17).",
-          "dosing_off": "MQTT value sent when dosing is turned off (default 19.18).",
-          "access_code": "Usually obtained automatically from the portal; enter manually only as a fallback (Bayrol portal → App Link)."
+          "dosing_off": "MQTT value sent when dosing is turned off (default 19.18)."
         }
       }
     }

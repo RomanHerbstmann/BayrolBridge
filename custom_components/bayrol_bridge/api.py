@@ -114,7 +114,6 @@ class BayrolApiClient:
         chlor_method: str = DEFAULT_CHLOR_METHOD,
         *,
         controls: dict[str, ControlConfig] | None = None,
-        access_code: str | None = None,
     ) -> None:
         """Initialize client."""
         self._session = session
@@ -123,7 +122,6 @@ class BayrolApiClient:
         self._phpsessid: str | None = None
         self._username: str | None = None
         self._password: str | None = None
-        self._access_code = access_code
         self._logged_in = False
         self._chlor_method = chlor_method
         self._controls = controls or get_controls(chlor_method)
